@@ -192,20 +192,10 @@ client.on('interactionCreate', async interaction => {
   if (interaction.isAutocomplete()) {
     const { commandName } = interaction;
     const focused = interaction.options.getFocused().toLowerCase();
-    const focusedOption = interaction.options.getFocused(true);
 
-    if (commandName === 'stats' || commandName === 'improve') {
+    if (commandName === 'stats' || commandName === 'improve' || commandName === '1v1') {
       const matches = Object.values(playerStats)
         .filter(p => p.name.toLowerCase().includes(focused))
-        .sort((a, b) => b.totalPoints - a.totalPoints)
-        .slice(0, 25)
-        .map(p => ({ name: p.name, value: p.name }));
-      return interaction.respond(matches);
-    }
-
-    if (commandName === '1v1') {
-      const matches = Object.values(playerStats)
-        .filter(p => p.name.toLowerCase().includes(focusedOption.value.toLowerCase()))
         .sort((a, b) => b.totalPoints - a.totalPoints)
         .slice(0, 25)
         .map(p => ({ name: p.name, value: p.name }));
@@ -273,29 +263,50 @@ client.on('interactionCreate', async interaction => {
       ? (player.ranks.reduce((a, b) => a + b, 0) / player.ranks.length).toFixed(1)
       : 'N/A';
 
-    const challengeLines = player.challenges
-      .sort((a, b) => a.rank - b.rank)
-      .map(c => `#${c.rank} **${getChallengeName(c.challengeId)}** — ${formatTime(c.record)}`)
-      .join('\n');
-
-    const description = [
-      `**Global Rank:** #${globalRank}`,
-      `**Total Points:** ${player.totalPoints.toLocaleString()}`,
-      `**World Records (1st):** ${player.wrCount}`,
-      `**Top 100s:** ${player.top100Count}`,
-      `**Avg Rank:** ${avgRank}`,
-      ``,
-      `**Challenge Appearances:**`,
-      challengeLines || 'None',
-    ].join('\n');
-
-    const embed = new EmbedBuilder()
+    const summaryEmbed = new EmbedBuilder()
       .setTitle(player.name.slice(0, 256))
       .setColor(0x5865f2)
-      .setDescription(description.slice(0, 4096))
+      .setDescription([
+        `**Global Rank:** #${globalRank}`,
+        `**Total Points:** ${player.totalPoints.toLocaleString()}`,
+        `**World Records (1st):** ${player.wrCount}`,
+        `**Top 100s:** ${player.top100Count}`,
+        `**Avg Rank:** ${avgRank}`,
+      ].join('\n'))
       .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
 
-    return interaction.editReply({ embeds: [embed] });
+    await interaction.editReply({ embeds: [summaryEmbed] });
+
+    // Split challenge list into chunks of 4096 chars and send as follow-up messages
+    const challengeLines = player.challenges
+      .sort((a, b) => a.rank - b.rank)
+      .map(c => `#${c.rank} **${getChallengeName(c.challengeId)}** — ${formatTime(c.record)}`);
+
+    let chunk = '';
+    let chunkIndex = 1;
+    const totalChunks = Math.ceil(challengeLines.length / 25);
+
+    for (let i = 0; i < challengeLines.length; i++) {
+      const line = challengeLines[i] + '\n';
+      if ((chunk + line).length > 4096) {
+        const followEmbed = new EmbedBuilder()
+          .setColor(0x5865f2)
+          .setTitle(`Challenge Appearances (${chunkIndex}/${totalChunks})`)
+          .setDescription(chunk.trim());
+        await interaction.followUp({ embeds: [followEmbed] });
+        chunk = '';
+        chunkIndex++;
+      }
+      chunk += line;
+    }
+
+    if (chunk.trim().length > 0) {
+      const followEmbed = new EmbedBuilder()
+        .setColor(0x5865f2)
+        .setTitle(totalChunks > 1 ? `Challenge Appearances (${chunkIndex}/${totalChunks})` : 'Challenge Appearances')
+        .setDescription(chunk.trim());
+      await interaction.followUp({ embeds: [followEmbed] });
+    }
   }
 
   else if (commandName === 'challenge') {
@@ -449,6 +460,7 @@ client.on('interactionCreate', async interaction => {
 
   else if (commandName === '1v1') {
     await interaction.deferReply();
+
     const name1 = interaction.options.getString('player1').toLowerCase();
     const name2 = interaction.options.getString('player2').toLowerCase();
 
@@ -468,7 +480,6 @@ client.on('interactionCreate', async interaction => {
     const avg1 = p1.ranks.length ? (p1.ranks.reduce((a, b) => a + b, 0) / p1.ranks.length) : 999;
     const avg2 = p2.ranks.length ? (p2.ranks.reduce((a, b) => a + b, 0) / p2.ranks.length) : 999;
 
-    // Head to head on shared challenges
     const p1Challenges = new Map(p1.challenges.map(c => [c.challengeId, c]));
     const p2Challenges = new Map(p2.challenges.map(c => [c.challengeId, c]));
 
@@ -483,22 +494,14 @@ client.on('interactionCreate', async interaction => {
       else ties++;
     }
 
-    // Score each category — lower score = worse, higher = better
     let p1Score = 0, p2Score = 0;
 
-    // Global rank (lower rank number = better)
     if (rank1 < rank2) p1Score++; else if (rank2 < rank1) p2Score++;
-    // Total points
     if (p1.totalPoints > p2.totalPoints) p1Score++; else if (p2.totalPoints > p1.totalPoints) p2Score++;
-    // WR count
     if (p1.wrCount > p2.wrCount) p1Score++; else if (p2.wrCount > p1.wrCount) p2Score++;
-    // Top 7 count
     if (p1.top7Count > p2.top7Count) p1Score++; else if (p2.top7Count > p1.top7Count) p2Score++;
-    // Top 100 count
     if (p1.top100Count > p2.top100Count) p1Score++; else if (p2.top100Count > p1.top100Count) p2Score++;
-    // Avg rank (lower = better)
     if (avg1 < avg2) p1Score++; else if (avg2 < avg1) p2Score++;
-    // Head to head wins
     if (p1Wins > p2Wins) p1Score++; else if (p2Wins > p1Wins) p2Score++;
 
     const winner = p1Score > p2Score ? p1.name : p2Score > p1Score ? p2.name : null;
