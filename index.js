@@ -97,28 +97,26 @@ async function checkAlerts(newCache) {
     for (const newEntry of newEntries) {
       const oldEntry = oldEntries.find(e => e.user_id === newEntry.user_id || e.username === newEntry.username);
 
-      // WR alert — rank 1 and either new or improved time
       if (newEntry.rank === 1) {
         const oldWr = oldEntries.find(e => e.rank === 1);
         const isNewWr = !oldWr || oldWr.username !== newEntry.username || oldWr.record !== newEntry.record;
         if (isNewWr && wrChannel) {
           const embed = new EmbedBuilder()
-            .setTitle('New World Record!')
+            .setTitle('New World Record')
             .setColor(0xffd700)
-            .setDescription(`**${newEntry.username}** set a new WR on **${getChallengeName(challengeId)}**\n **${formatTime(newEntry.record)}**`)
+            .setDescription(`**${newEntry.username}** set a new WR on **${getChallengeName(challengeId)}**\nTime: **${formatTime(newEntry.record)}**`)
             .setTimestamp();
           wrChannel.send({ embeds: [embed] }).catch(console.error);
         }
       }
 
-      // Top 7 alert — rank 2-7 and either new entry or improved rank
       if (newEntry.rank >= 2 && newEntry.rank <= 7) {
         const wasAlreadyTop7 = oldEntry && oldEntry.rank <= 7;
         if (!wasAlreadyTop7 && top7Channel) {
           const embed = new EmbedBuilder()
-            .setTitle('New Top 7!')
+            .setTitle('New Top 7')
             .setColor(0x57f287)
-            .setDescription(`**${newEntry.username}** entered the top 7 on **${getChallengeName(challengeId)}**\n Rank **#${newEntry.rank}** —  **${formatTime(newEntry.record)}**`)
+            .setDescription(`**${newEntry.username}** entered the top 7 on **${getChallengeName(challengeId)}**\nRank **#${newEntry.rank}** — Time: **${formatTime(newEntry.record)}**`)
             .setTimestamp();
           top7Channel.send({ embeds: [embed] }).catch(console.error);
         }
@@ -173,7 +171,6 @@ async function buildCache() {
     });
   }
 
-  // Only check alerts after the first cache build (previousCache will be empty on first run)
   if (Object.keys(previousCache).length > 0) {
     await checkAlerts(cache);
   }
@@ -195,10 +192,20 @@ client.on('interactionCreate', async interaction => {
   if (interaction.isAutocomplete()) {
     const { commandName } = interaction;
     const focused = interaction.options.getFocused().toLowerCase();
+    const focusedOption = interaction.options.getFocused(true);
 
     if (commandName === 'stats' || commandName === 'improve') {
       const matches = Object.values(playerStats)
         .filter(p => p.name.toLowerCase().includes(focused))
+        .sort((a, b) => b.totalPoints - a.totalPoints)
+        .slice(0, 25)
+        .map(p => ({ name: p.name, value: p.name }));
+      return interaction.respond(matches);
+    }
+
+    if (commandName === '1v1') {
+      const matches = Object.values(playerStats)
+        .filter(p => p.name.toLowerCase().includes(focusedOption.value.toLowerCase()))
         .sort((a, b) => b.totalPoints - a.totalPoints)
         .slice(0, 25)
         .map(p => ({ name: p.name, value: p.name }));
@@ -372,7 +379,6 @@ client.on('interactionCreate', async interaction => {
     const page = interaction.options.getInteger('page') || 1;
     const perPage = 30;
 
-    // Only include players in the global top 100
     const globalSorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
     const top100Players = globalSorted.slice(0, 100);
 
@@ -424,7 +430,7 @@ client.on('interactionCreate', async interaction => {
       return interaction.editReply(`**${player.name}** has a top 100 entry on every challenge!`);
     }
 
-    const lines = missing.map(id => `• **${getChallengeName(id)}**`);
+    const lines = missing.map(id => `- **${getChallengeName(id)}**`);
 
     const description = [
       `**${player.name}** has no top 100 entry on ${missing.length} challenge${missing.length === 1 ? '' : 's'}:`,
@@ -436,6 +442,86 @@ client.on('interactionCreate', async interaction => {
       .setTitle(`${player.name} — Challenges to Improve`)
       .setColor(0xe67e22)
       .setDescription(description.slice(0, 4096))
+      .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+
+    return interaction.editReply({ embeds: [embed] });
+  }
+
+  else if (commandName === '1v1') {
+    await interaction.deferReply();
+    const name1 = interaction.options.getString('player1').toLowerCase();
+    const name2 = interaction.options.getString('player2').toLowerCase();
+
+    const p1 = Object.values(playerStats).find(p => p.name.toLowerCase() === name1)
+      || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name1));
+    const p2 = Object.values(playerStats).find(p => p.name.toLowerCase() === name2)
+      || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name2));
+
+    if (!p1) return interaction.editReply(`No player found matching **${interaction.options.getString('player1')}**.`);
+    if (!p2) return interaction.editReply(`No player found matching **${interaction.options.getString('player2')}**.`);
+    if (p1.name === p2.name) return interaction.editReply(`You can't 1v1 yourself.`);
+
+    const globalSorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
+    const rank1 = globalSorted.findIndex(p => p.name === p1.name) + 1;
+    const rank2 = globalSorted.findIndex(p => p.name === p2.name) + 1;
+
+    const avg1 = p1.ranks.length ? (p1.ranks.reduce((a, b) => a + b, 0) / p1.ranks.length) : 999;
+    const avg2 = p2.ranks.length ? (p2.ranks.reduce((a, b) => a + b, 0) / p2.ranks.length) : 999;
+
+    // Head to head on shared challenges
+    const p1Challenges = new Map(p1.challenges.map(c => [c.challengeId, c]));
+    const p2Challenges = new Map(p2.challenges.map(c => [c.challengeId, c]));
+
+    const sharedIds = [...p1Challenges.keys()].filter(id => p2Challenges.has(id));
+    let p1Wins = 0, p2Wins = 0, ties = 0;
+
+    for (const id of sharedIds) {
+      const r1 = p1Challenges.get(id).rank;
+      const r2 = p2Challenges.get(id).rank;
+      if (r1 < r2) p1Wins++;
+      else if (r2 < r1) p2Wins++;
+      else ties++;
+    }
+
+    // Score each category — lower score = worse, higher = better
+    let p1Score = 0, p2Score = 0;
+
+    // Global rank (lower rank number = better)
+    if (rank1 < rank2) p1Score++; else if (rank2 < rank1) p2Score++;
+    // Total points
+    if (p1.totalPoints > p2.totalPoints) p1Score++; else if (p2.totalPoints > p1.totalPoints) p2Score++;
+    // WR count
+    if (p1.wrCount > p2.wrCount) p1Score++; else if (p2.wrCount > p1.wrCount) p2Score++;
+    // Top 7 count
+    if (p1.top7Count > p2.top7Count) p1Score++; else if (p2.top7Count > p1.top7Count) p2Score++;
+    // Top 100 count
+    if (p1.top100Count > p2.top100Count) p1Score++; else if (p2.top100Count > p1.top100Count) p2Score++;
+    // Avg rank (lower = better)
+    if (avg1 < avg2) p1Score++; else if (avg2 < avg1) p2Score++;
+    // Head to head wins
+    if (p1Wins > p2Wins) p1Score++; else if (p2Wins > p1Wins) p2Score++;
+
+    const winner = p1Score > p2Score ? p1.name : p2Score > p1Score ? p2.name : null;
+    const verdict = winner
+      ? `**${winner}** wins the 1v1 (${Math.max(p1Score, p2Score)}-${Math.min(p1Score, p2Score)})`
+      : `Dead even — this 1v1 is a tie`;
+
+    const description = [
+      `**Global Rank:** ${p1.name} #${rank1} vs ${p2.name} #${rank2}`,
+      `**Total Points:** ${p1.totalPoints.toLocaleString()} vs ${p2.totalPoints.toLocaleString()}`,
+      `**World Records:** ${p1.wrCount} vs ${p2.wrCount}`,
+      `**Top 7s:** ${p1.top7Count} vs ${p2.top7Count}`,
+      `**Top 100s:** ${p1.top100Count} vs ${p2.top100Count}`,
+      `**Avg Rank:** ${avg1.toFixed(1)} vs ${avg2.toFixed(1)}`,
+      `**Head to Head (${sharedIds.length} shared challenges):** ${p1.name} ${p1Wins} — ${p2Wins} ${p2.name}${ties > 0 ? ` (${ties} tied)` : ''}`,
+      ``,
+      `**Verdict:** ${verdict}`,
+    ].join('\n');
+
+    const embed = new EmbedBuilder()
+      .setTitle(`1v1: ${p1.name} vs ${p2.name}`)
+      .setColor(winner === p1.name ? 0x5865f2 : winner === p2.name ? 0xe74c3c : 0x95a5a6)
+      .setDescription(description)
       .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
 
     return interaction.editReply({ embeds: [embed] });
