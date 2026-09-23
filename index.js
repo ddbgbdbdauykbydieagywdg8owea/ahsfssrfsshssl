@@ -15,23 +15,23 @@ const CHALLENGE_IDS = ["0039211B4C02864F696B85A078F817CD","00AA7B01486CAFCA4447A
 // IDs not listed here will just show their raw ID.
 // ============================================================
 const CHALLENGE_NAMES = {
-"15B5D50548715AD9B409F0B3DE73ABF4":{name:"Verting",type:"perm"},
-"1DE99EFE4BF8C9948F487DA231824A75":{name:"Intro 1",type:"perm"},
-"EAE918404AE07841ED71A29FD272C08E":{name:"Intro 2",type:"perm"},
-"CB19D5744E666A9EF8115EBEA775CD5B":{name:"Intro 3",type:"perm"},
-"58897AC0430DE7DC1B447FBB93784544":{name:"Intro 4",type:"perm"},
-"AAAA215A4F710BCF0F7F45AC47C81D18":{name:"Intro 5",type:"perm"},
-"19C74A624FB40030182FCD8D95457FFB":{name:"Intro 6",type:"perm"},
-"533753B146F544C7FF0CD0AE15C08A06":{name:"Wall Run",type:"perm"},
-"1ED307CC40BAE77554C8E6B2DE4419BD":{name:"Pinch Climb",type:"perm"},
-"F7D49CA64CDD411A37140CADBD2F9CC7":{name:"Wall Climb",type:"perm"},
-"D8B2AB514524C336036961825D50474D":{name:"Corner Climb",type:"perm"},
-"158F86AF40A4136A8413FE83BA316671":{name:"Vehicle Vault",type:"perm"},
-"0788F9CE4D66440BFECFDF98F27F2AB3":{name:"Drop and Dive",type:"perm"},
-"E5BE61C242B1CA87F3F572A11D6DC427":{name:"Tuck n Weave",type:"perm"},
-"B1AF729548E1174514CA7DAD9B49DC6E":{name:"Gantry Jump",type:"perm"},
-"0039211B4C02864F696B85A078F817CD":{name:"Jungle Gym",type:"perm"},
-"B4844AEA47AEDAB2A62DBC82C840C198":{name:"JG Drop1",type:"perm"},
+  "15B5D50548715AD9B409F0B3DE73ABF4": { name: "Verting", type: "perm" },
+  "1DE99EFE4BF8C9948F487DA231824A75": { name: "Intro 1", type: "perm" },
+  "EAE918404AE07841ED71A29FD272C08E": { name: "Intro 2", type: "perm" },
+  "CB19D5744E666A9EF8115EBEA775CD5B": { name: "Intro 3", type: "perm" },
+  "58897AC0430DE7DC1B447FBB93784544": { name: "Intro 4", type: "perm" },
+  "AAAA215A4F710BCF0F7F45AC47C81D18": { name: "Intro 5", type: "perm" },
+  "19C74A624FB40030182FCD8D95457FFB": { name: "Intro 6", type: "perm" },
+  "533753B146F544C7FF0CD0AE15C08A06": { name: "Wall Run", type: "perm" },
+  "1ED307CC40BAE77554C8E6B2DE4419BD": { name: "Pinch Climb", type: "perm" },
+  "F7D49CA64CDD411A37140CADBD2F9CC7": { name: "Wall Climb", type: "perm" },
+  "D8B2AB514524C336036961825D50474D": { name: "Corner Climb", type: "perm" },
+  "158F86AF40A4136A8413FE83BA316671": { name: "Vehicle Vault", type: "perm" },
+  "0788F9CE4D66440BFECFDF98F27F2AB3": { name: "Drop and Dive", type: "perm" },
+  "E5BE61C242B1CA87F3F572A11D6DC427": { name: "Tuck n Weave", type: "perm" },
+  "B1AF729548E1174514CA7DAD9B49DC6E": { name: "Gantry Jump", type: "perm" },
+  "0039211B4C02864F696B85A078F817CD": { name: "Jungle Gym", type: "perm" },
+  "B4844AEA47AEDAB2A62DBC82C840C198": { name: "JG Drop1", type: "perm" },
 };
 
 function getChallengeName(id) {
@@ -145,7 +145,7 @@ client.on('interactionCreate', async interaction => {
     const { commandName } = interaction;
     const focused = interaction.options.getFocused().toLowerCase();
 
-    if (commandName === 'place') {
+    if (commandName === 'stats') {
       const matches = Object.values(playerStats)
         .filter(p => p.name.toLowerCase().includes(focused))
         .sort((a, b) => b.totalPoints - a.totalPoints)
@@ -197,7 +197,7 @@ client.on('interactionCreate', async interaction => {
     interaction.editReply({ embeds: [embed] });
   }
 
-  else if (commandName === 'place') {
+  else if (commandName === 'stats') {
     await interaction.deferReply();
     const name = interaction.options.getString('name').toLowerCase();
 
@@ -211,11 +211,31 @@ client.on('interactionCreate', async interaction => {
     const sorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
     const globalRank = sorted.findIndex(p => p.name === player.name) + 1;
 
+    const avgRank = player.ranks.length
+      ? (player.ranks.reduce((a, b) => a + b, 0) / player.ranks.length).toFixed(1)
+      : 'N/A';
+
+    const challengeLines = player.challenges
+      .sort((a, b) => a.rank - b.rank)
+      .map(c => `#${c.rank} **${getChallengeName(c.challengeId)}** — ${formatTime(c.record)}`)
+      .join('\n');
+
+    const description = [
+      `**Global Rank:** #${globalRank}`,
+      `**Total Points:** ${player.totalPoints.toLocaleString()}`,
+      `**World Records (1st):** ${player.wrCount}`,
+      `**Top 100s:** ${player.top100Count}`,
+      `**Avg Rank:** ${avgRank}`,
+      ``,
+      `**Challenge Appearances:**`,
+      challengeLines || 'None',
+    ].join('\n');
+
     const embed = new EmbedBuilder()
       .setTitle(player.name.slice(0, 256))
       .setColor(0x5865f2)
-      .setDescription(`**${player.name}** is ranked **#${globalRank}** on the global leaderboard.`)
-      .setFooter({ text: 'Use /leaderboard to see the full rankings' });
+      .setDescription(description.slice(0, 4096))
+      .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
 
     return interaction.editReply({ embeds: [embed] });
   }
