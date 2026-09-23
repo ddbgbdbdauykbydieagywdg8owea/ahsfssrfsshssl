@@ -141,7 +141,7 @@ client.on('interactionCreate', async interaction => {
   if (commandName === 'leaderboard') {
     await interaction.deferReply();
     const page = interaction.options.getInteger('page') || 1;
-    const perPage = 10;
+    const perPage = 50;
 
     const sorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
     const totalPages = Math.ceil(sorted.length / perPage);
@@ -207,17 +207,53 @@ client.on('interactionCreate', async interaction => {
     interaction.editReply({ embeds: [embed] });
   }
 
-  else if (commandName === 'challenge') {
+else if (commandName === 'player') {
     await interaction.deferReply();
-    const id = interaction.options.getString('id').toUpperCase();
+    const name = interaction.options.getString('name').toLowerCase();
 
-    const entries = cache[id];
-    if (!entries || entries.length === 0) {
-      return interaction.editReply(`No data found for challenge ID \`${id}\`.`);
+    const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name)
+      || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name));
+
+    if (!player) {
+      return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
     }
 
-    const lines = entries.slice(0, 20).map(e => {
-      return `#${e.rank} **${e.username}** — ${formatTime(e.record)}`;
+    const sorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
+    const globalRank = sorted.findIndex(p => p.name === player.name) + 1;
+    const avgRank = player.ranks.length
+      ? (player.ranks.reduce((a, b) => a + b, 0) / player.ranks.length).toFixed(1)
+      : 'N/A';
+
+    const challengeLines = player.challenges
+      .sort((a, b) => a.rank - b.rank)
+      .slice(0, 10)
+      .map(c => `\`${c.challengeId}\` — Rank **#${c.rank}** — ${formatTime(c.record)}`);
+
+    // Make sure field value isn't empty
+    const challengeValue = challengeLines.join('\n') || 'None';
+
+    // Trim to 1024 chars just in case
+    const trimmed = challengeValue.length > 1024 ? challengeValue.slice(0, 1021) + '...' : challengeValue;
+
+    const embed = new EmbedBuilder()
+      .setTitle(player.name.slice(0, 256))
+      .setColor(0x5865f2)
+      .addFields(
+        { name: 'Global Rank', value: `#${globalRank}`, inline: true },
+        { name: 'Total Points', value: player.totalPoints.toLocaleString(), inline: true },
+        { name: 'Avg Rank', value: `${avgRank}`, inline: true },
+        { name: 'World Records', value: `${player.wrCount}`, inline: true },
+        { name: 'Top 7s', value: `${player.top7Count}`, inline: true },
+        { name: 'Top 100s', value: `${player.top100Count}`, inline: true },
+        {
+          name: `Top 100 Challenges (${player.challenges.length} total, showing top 10)`,
+          value: trimmed,
+        }
+      )
+      .setFooter({ text: 'Use /challenge [id] to view a challenge leaderboard' });
+
+    return interaction.editReply({ embeds: [embed] });
+  }
     });
 
     const embed = new EmbedBuilder()
