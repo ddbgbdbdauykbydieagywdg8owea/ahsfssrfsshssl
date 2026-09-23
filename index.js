@@ -187,18 +187,22 @@ client.on('interactionCreate', async interaction => {
       .reduce((sum, c) => sum + (c.record || 0), 0)
       .toFixed(2);
 
-    const embed = new EmbedBuilder()
+const embed = new EmbedBuilder()
       .setTitle(player.name.slice(0, 256))
       .setColor(0x5865f2)
-      .addFields(
-        { name: 'Leaderboard Rank', value: `#${globalRank}`, inline: true },
-        { name: 'Total Points', value: `${player.totalPoints.toLocaleString()}`, inline: true },
-        { name: 'Average Rank', value: `${avgRank}`, inline: true },
-        { name: '1st Place Finishes', value: `${player.wrCount}`, inline: true },
-        { name: 'Top 7 Finishes', value: `${player.top7Count}`, inline: true },
-        { name: 'Top 100 Finishes', value: `${player.top100Count}`, inline: true },
-        { name: 'Total Record', value: `${totalRecord}`, inline: true }
-      )
+      .setDescription([
+        `**Leaderboard Rank:** #${globalRank}`,
+        `**Total Points:** ${player.totalPoints.toLocaleString()}`,
+        `**Average Rank:** ${avgRank}`,
+        `**1st Place Finishes:** ${player.wrCount}`,
+        `**Top 7 Finishes:** ${player.top7Count}`,
+        `**Top 100 Finishes:** ${player.top100Count}`,
+        `**Total Record:** ${totalRecord}s`,
+      ].join('\n'))
+      .setFooter({ text: 'Use /challenge [id] to view a challenge leaderboard' });
+
+    return interaction.editReply({ embeds: [embed] });
+  }
       .setFooter({ text: 'Use /challenge [id] to view a challenge leaderboard' });
 
     return interaction.editReply({ embeds: [embed] });
