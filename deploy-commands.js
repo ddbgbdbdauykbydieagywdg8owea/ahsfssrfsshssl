@@ -10,8 +10,8 @@ const commands = [
     .addIntegerOption(opt =>
       opt.setName('page').setDescription('Page number').setMinValue(1)),
   new SlashCommandBuilder()
-    .setName('place')
-    .setDescription('Look up a players global rank')
+    .setName('stats')
+    .setDescription('View a players full stats')
     .addStringOption(opt =>
       opt.setName('name').setDescription('Player name').setRequired(true).setAutocomplete(true)),
   new SlashCommandBuilder()
