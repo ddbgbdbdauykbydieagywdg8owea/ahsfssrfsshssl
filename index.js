@@ -1,9 +1,8 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const axios = require('axios');
 
-const BOT_TOKEN = 'MTU1MjEwMjEwNjY5NjEyNjU2NQ.Gq8baG.19bWqGRD9anaqDmTN_YqoURyaNUFJISchfsgpk';
-const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlfaWQiOiI4MGEwODUyZS1lNjQzLTRjYWItOTg4OS1hN2ExOWI5YWJlY2EiLCJrZXlfdHlwZSI6InNlcnZpY2UiLCJvd25lcl9pZCI6IjUyMTQ2MjcxNTg1NzM0MDciLCJjcmVhdGVkX2F0IjoiMjAyNi0wOS0wMSAyMToyMTowMi41MDE5MTIifQ.4joZFi4TNW-6xSw6fAgOXAMIG5QRiBc8OlZHMFruhVU';
-
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const API_KEY = process.env.API_KEY;
 // ============================================================
 // PASTE YOUR 259 CHALLENGE IDs HERE
 // ============================================================
