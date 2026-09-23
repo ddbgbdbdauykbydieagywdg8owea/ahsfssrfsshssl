@@ -183,34 +183,22 @@ client.on('interactionCreate', async interaction => {
       ? (player.ranks.reduce((a, b) => a + b, 0) / player.ranks.length).toFixed(1)
       : 'N/A';
 
-    const challengeLines = player.challenges
-      .sort((a, b) => a.rank - b.rank)
-      .slice(0, 10)
-      .map(c => `\`${c.challengeId}\` — Rank **#${c.rank}** — ${formatTime(c.record)}`);
-
-    let challengeValue = challengeLines.join('\n');
-    if (!challengeValue || challengeValue.trim() === '') challengeValue = 'None';
-    if (challengeValue.length > 1024) challengeValue = challengeValue.slice(0, 1021) + '...';
-
-    const fields = [
-      { name: 'Global Rank', value: `#${globalRank}`, inline: true },
-      { name: 'Total Points', value: `${player.totalPoints.toLocaleString()}`, inline: true },
-      { name: 'Avg Rank', value: `${avgRank}`, inline: true },
-      { name: 'World Records', value: `${player.wrCount}`, inline: true },
-      { name: 'Top 7s', value: `${player.top7Count}`, inline: true },
-      { name: 'Top 100s', value: `${player.top100Count}`, inline: true },
-      { name: `Top 100 Challenges (${player.challenges.length} total, showing top 10)`, value: challengeValue },
-    ];
-
-    for (const field of fields) {
-      if (!field.value || field.value.trim() === '') field.value = 'N/A';
-      if (field.value.length > 1024) field.value = field.value.slice(0, 1021) + '...';
-    }
+    const totalRecord = player.challenges
+      .reduce((sum, c) => sum + (c.record || 0), 0)
+      .toFixed(2);
 
     const embed = new EmbedBuilder()
       .setTitle(player.name.slice(0, 256))
       .setColor(0x5865f2)
-      .addFields(fields)
+      .addFields(
+        { name: 'Leaderboard Rank', value: `#${globalRank}`, inline: true },
+        { name: 'Total Points', value: `${player.totalPoints.toLocaleString()}`, inline: true },
+        { name: 'Average Rank', value: `${avgRank}`, inline: true },
+        { name: '1st Place Finishes', value: `${player.wrCount}`, inline: true },
+        { name: 'Top 7 Finishes', value: `${player.top7Count}`, inline: true },
+        { name: 'Top 100 Finishes', value: `${player.top100Count}`, inline: true },
+        { name: 'Total Record', value: `${totalRecord}`, inline: true }
+      )
       .setFooter({ text: 'Use /challenge [id] to view a challenge leaderboard' });
 
     return interaction.editReply({ embeds: [embed] });
