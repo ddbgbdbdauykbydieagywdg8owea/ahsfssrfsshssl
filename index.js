@@ -39,8 +39,8 @@ function getChallengeName(id) {
 // ============================================================
 // SET YOUR ALERT CHANNEL IDs HERE
 // ============================================================
-const WR_CHANNEL_ID = 'YOUR_WR_CHANNEL_ID_HERE';
-const TOP7_CHANNEL_ID = 'YOUR_TOP7_CHANNEL_ID_HERE';
+const WR_CHANNEL_ID = '1552454751923470348';
+const TOP7_CHANNEL_ID = '1552455130069340230';
 
 const POINTS = [
   0,
