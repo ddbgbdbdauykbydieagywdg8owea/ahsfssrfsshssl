@@ -1,7 +1,7 @@
 const { REST, Routes, SlashCommandBuilder } = require('discord.js');
 
 const CLIENT_ID = '1552102106696126565';
-const BOT_TOKEN = 'MTU1MjEwMjEwNjY5NjEyNjU2NQ.GRJkq9.cuFmi-lsRwieQkFtLBX4cDAUlwWhDixy8Yw-jA';
+const BOT_TOKEN = process.env.BOT_TOKEN;
 
 const commands = [
   new SlashCommandBuilder()
@@ -10,8 +10,8 @@ const commands = [
     .addIntegerOption(opt =>
       opt.setName('page').setDescription('Page number').setMinValue(1)),
   new SlashCommandBuilder()
-    .setName('player')
-    .setDescription('Look up a player by name')
+    .setName('place')
+    .setDescription('Look up a players global rank')
     .addStringOption(opt =>
       opt.setName('name').setDescription('Player name').setRequired(true).setAutocomplete(true)),
   new SlashCommandBuilder()
