@@ -29,7 +29,7 @@ const CHALLENGE_NAMES = {
   "E5BE61C242B1CA87F3F572A11D6DC427": { name: "Tuck n Weave", type: "perm" },
   "B1AF729548E1174514CA7DAD9B49DC6E": { name: "Gantry Jump", type: "perm" },
   "0039211B4C02864F696B85A078F817CD": { name: "Jungle Gym", type: "perm" },
-  "B4844AEA47AEDAB2A62DBC82C840C198": { name: "JG Drop1", type: "perm" },
+  "B4844AEA47AEDAB2A62DBC82C840C198": { name: "JG Drop", type: "perm" },
 };
 
 function getChallengeName(id) {
