@@ -484,7 +484,7 @@ client.on('interactionCreate', async interaction => {
     const { commandName } = interaction;
     const focused = interaction.options.getFocused().toLowerCase();
 
-    if (commandName === 'stats' || commandName === 'improve' || commandName === '1v1') {
+    if (commandName === 'stats' || commandName === 'improve' || commandName === '1v1' || commandName === 'summary') {
       const matches = Object.values(playerStats)
         .filter(p => p.name.toLowerCase().includes(focused))
         .sort((a, b) => b.totalPoints - a.totalPoints)
