@@ -536,7 +536,7 @@ client.on('interactionCreate', async interaction => {
     const { commandName } = interaction;
     const focused = interaction.options.getFocused().toLowerCase();
 
-    if (commandName === 'stats' || commandName === 'improve' || commandName === '1v1' || commandName === 'summary' || commandName === 'zdriftimprove') {
+    if (commandName === 'stats' || commandName === 'improve' || commandName === '1v1' || commandName === 'summary' || commandName === 'zdriftimprove' || commandName === 'zstats' || commandName === 'zsummary') {
       const matches = Object.values(playerStats)
         .filter(p => p.name.toLowerCase().includes(focused))
         .sort((a, b) => b.totalPoints - a.totalPoints)
@@ -991,7 +991,6 @@ client.on('interactionCreate', async interaction => {
 
     const playerChallengeIds = new Set(player.challenges.map(c => c.challengeId));
 
-    // Also check zdrift cache entries for this player
     const zdriftPlayerIds = new Set();
     for (const id of ZDRIFT_IDS) {
       const entries = cache[id];
@@ -1011,6 +1010,168 @@ client.on('interactionCreate', async interaction => {
       .setTitle(`${player.name} — ZDrift Challenges to Improve`)
       .setColor(0x2ecc71)
       .setDescription(description.slice(0, 4096))
+      .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+
+    return interaction.editReply({ embeds: [embed] });
+  }
+
+  else if (commandName === 'zstats') {
+    await interaction.deferReply();
+    const name = interaction.options.getString('name').toLowerCase();
+
+    const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name)
+      || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name));
+
+    if (!player) return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
+
+    const zdriftChallenges = [];
+    for (const id of ZDRIFT_IDS) {
+      const entries = cache[id];
+      if (!entries) continue;
+      const entry = entries.find(e => e.username && e.username.toLowerCase() === player.name.toLowerCase());
+      if (entry) zdriftChallenges.push({ challengeId: id, rank: entry.rank, record: entry.record });
+    }
+
+    if (zdriftChallenges.length === 0) return interaction.editReply(`**${player.name}** has no top 100 entries on any ZDrift challenge.`);
+
+    const totalZPoints = zdriftChallenges.reduce((sum, c) => sum + getPoints(c.rank), 0);
+    const zdriftWrs = zdriftChallenges.filter(c => c.rank === 1).length;
+    const zdriftTop7 = zdriftChallenges.filter(c => c.rank <= 7).length;
+    const avgRank = (zdriftChallenges.reduce((sum, c) => sum + c.rank, 0) / zdriftChallenges.length).toFixed(1);
+
+    const summaryEmbed = new EmbedBuilder()
+      .setTitle(`${player.name} — ZDrift Stats`)
+      .setColor(0x2ecc71)
+      .setDescription([
+        `**Total ZDrift Points:** ${totalZPoints.toLocaleString()}`,
+        `**World Records:** ${zdriftWrs}`,
+        `**Top 7s:** ${zdriftTop7}`,
+        `**Top 100s:** ${zdriftChallenges.length}`,
+        `**Avg Rank:** ${avgRank}`,
+      ].join('\n'))
+      .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+
+    await interaction.editReply({ embeds: [summaryEmbed] });
+
+    const challengeLines = zdriftChallenges
+      .sort((a, b) => a.rank - b.rank)
+      .map(c => `#${c.rank} **${getChallengeName(c.challengeId)}** — ${formatTime(c.record)}`);
+
+    let chunk = '';
+    let chunkIndex = 1;
+    const totalChunks = Math.ceil(challengeLines.length / 25);
+
+    for (let i = 0; i < challengeLines.length; i++) {
+      const line = challengeLines[i] + '\n';
+      if ((chunk + line).length > 4096) {
+        const followEmbed = new EmbedBuilder()
+          .setColor(0x2ecc71)
+          .setTitle(`ZDrift Appearances (${chunkIndex}/${totalChunks})`)
+          .setDescription(chunk.trim());
+        await interaction.followUp({ embeds: [followEmbed] });
+        chunk = '';
+        chunkIndex++;
+      }
+      chunk += line;
+    }
+
+    if (chunk.trim().length > 0) {
+      const followEmbed = new EmbedBuilder()
+        .setColor(0x2ecc71)
+        .setTitle(totalChunks > 1 ? `ZDrift Appearances (${chunkIndex}/${totalChunks})` : 'ZDrift Appearances')
+        .setDescription(chunk.trim());
+      await interaction.followUp({ embeds: [followEmbed] });
+    }
+  }
+
+else if (commandName === 'zsummary') {
+    await interaction.deferReply();
+    const name = interaction.options.getString('name').toLowerCase();
+
+    const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name)
+      || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name));
+
+    if (!player) return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
+
+    const zdriftChallenges = [];
+    for (const id of ZDRIFT_IDS) {
+      const entries = cache[id];
+      if (!entries) continue;
+      const entry = entries.find(e => e.username && e.username.toLowerCase() === player.name.toLowerCase());
+      if (entry) zdriftChallenges.push({ rank: entry.rank });
+    }
+
+    if (zdriftChallenges.length === 0) return interaction.editReply(`**${player.name}** has no top 100 entries on any ZDrift challenge.`);
+
+    const totalZPoints = zdriftChallenges.reduce((sum, c) => sum + getPoints(c.rank), 0);
+    const zdriftWrs = zdriftChallenges.filter(c => c.rank === 1).length;
+    const zdriftTop7 = zdriftChallenges.filter(c => c.rank <= 7).length;
+    const avgRank = (zdriftChallenges.reduce((sum, c) => sum + c.rank, 0) / zdriftChallenges.length).toFixed(1);
+
+    const embed = new EmbedBuilder()
+      .setTitle(player.name.slice(0, 256))
+      .setColor(0x2ecc71)
+      .setDescription(`${totalZPoints.toLocaleString()} ZDrift pts | ${zdriftWrs} WRs | ${zdriftTop7} Top 7s | ${zdriftChallenges.length} Top 100s | Avg Rank: ${avgRank}`)
+      .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+
+    return interaction.editReply({ embeds: [embed] });
+  }
+
+  else if (commandName === 'findbywr') {
+    await interaction.deferReply();
+    const input = interaction.options.getString('time').trim().toLowerCase();
+
+    let searchSeconds = null;
+    const minSecMatch = input.match(/(\d+)m\s*([\d.]+)s?/);
+    const colonMatch = input.match(/(\d+):([\d.]+)/);
+    const plainMatch = input.match(/^[\d.]+$/);
+
+    if (minSecMatch) {
+      searchSeconds = parseInt(minSecMatch[1]) * 60 + parseFloat(minSecMatch[2]);
+    } else if (colonMatch) {
+      searchSeconds = parseInt(colonMatch[1]) * 60 + parseFloat(colonMatch[2]);
+    } else if (plainMatch) {
+      searchSeconds = parseFloat(input);
+    }
+
+    if (searchSeconds === null) {
+      return interaction.editReply('Could not parse that time. Try formats like `12.345`, `1m 23.456s`, or `1:23.456`.');
+    }
+
+    const ALL_IDS = [...new Set([...CHALLENGE_IDS, ...ZDRIFT_IDS])];
+    const results = [];
+
+    for (const id of ALL_IDS) {
+      const entries = cache[id];
+      if (!entries) continue;
+      const wr = entries.find(e => e.rank === 1);
+      if (!wr) continue;
+      if (Math.abs(wr.record - searchSeconds) < 0.01) {
+        results.push({ id, wr });
+      }
+    }
+
+    if (results.length === 0) {
+      return interaction.editReply(`No challenge found with a WR time matching **${input}**.`);
+    }
+
+    const globalSorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
+
+    const lines = results.map(({ id, wr }) => {
+      const playerEntry = globalSorted.findIndex(p => p.name === wr.username);
+      const globalRank = playerEntry >= 0 ? `#${playerEntry + 1}` : 'Unranked';
+      return [
+        `**Challenge:** ${getChallengeName(id)}`,
+        `**ID:** \`${id}\``,
+        `**WR Holder:** ${wr.username} (Global ${globalRank})`,
+        `**Time:** ${formatTime(wr.record)}`,
+      ].join('\n');
+    });
+
+    const embed = new EmbedBuilder()
+      .setTitle('Challenge Found')
+      .setColor(0xf5a623)
+      .setDescription(lines.join('\n\n'))
       .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
 
     return interaction.editReply({ embeds: [embed] });
