@@ -837,7 +837,7 @@ client.on('interactionCreate', async interaction => {
       `**Verdict:** ${verdict}`,
     ].join('\n');
 
-    const embed = new EmbedBuilder()
+const embed = new EmbedBuilder()
       .setTitle(`1v1: ${p1.name} vs ${p2.name}`)
       .setColor(winner === p1.name ? 0x5865f2 : winner === p2.name ? 0xe74c3c : 0x95a5a6)
       .setDescription(description)
@@ -845,13 +845,12 @@ client.on('interactionCreate', async interaction => {
 
     return interaction.editReply({ embeds: [embed] });
   }
-});
-else if (commandName === 'zdriftleaderboard') {
+
+  else if (commandName === 'zdriftleaderboard') {
     await interaction.deferReply();
     const page = interaction.options.getInteger('page') || 1;
     const perPage = 30;
 
-    // Build a leaderboard only from ZDRIFT_IDS
     const zdriftStats = {};
 
     for (const id of ZDRIFT_IDS) {
@@ -904,4 +903,7 @@ else if (commandName === 'zdriftleaderboard') {
 
     interaction.editReply({ embeds: [embed] });
   }
+
+});
+
 client.login(BOT_TOKEN);
