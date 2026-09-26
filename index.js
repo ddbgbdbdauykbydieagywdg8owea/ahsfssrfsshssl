@@ -37,7 +37,8 @@ const ZDRIFT_IDS = [
   '078E1D7A4C3C79AE4A5C8F8BB4A6C0C7',
   '328B66F1494862DA6BBEFB9D3AB5AEC2',
   '1C07391C4C2209847EFC44AFA8DE4310',
-  '16309F1A456332E2E9C266A1BCA94EC1',];
+  '16309F1A456332E2E9C266A1BCA94EC1',
+];
 
 const CHALLENGE_NAMES = {
 "15B5D50548715AD9B409F0B3DE73ABF4": { name: "Verting", type: "perm" },
@@ -305,6 +306,10 @@ function getChallengeName(id) {
   return CHALLENGE_NAMES[id]?.name || id;
 }
 
+function getChallengeType(id) {
+  return CHALLENGE_NAMES[id]?.type || null;
+}
+
 // ============================================================
 // SET YOUR ALERT CHANNEL IDs HERE
 // ============================================================
@@ -338,6 +343,37 @@ function formatTime(seconds) {
   return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
 }
 
+function buildTypeLeaderboard(types, page, perPage) {
+  const typeIds = Object.entries(CHALLENGE_NAMES)
+    .filter(([id, data]) => types.includes(data.type))
+    .map(([id]) => id);
+
+  const typeStats = {};
+  for (const id of typeIds) {
+    const entries = cache[id];
+    if (!entries) continue;
+    entries.forEach(entry => {
+      const rank = entry.rank;
+      if (rank > 100) return;
+      const name = entry.username || 'Unknown';
+      const userId = entry.user_id || name;
+      if (!typeStats[userId]) {
+        typeStats[userId] = { name, totalPoints: 0, wrCount: 0, top7Count: 0, top100Count: 0, ranks: [] };
+      }
+      typeStats[userId].totalPoints += getPoints(rank);
+      typeStats[userId].top100Count++;
+      if (rank === 1) typeStats[userId].wrCount++;
+      if (rank <= 7) typeStats[userId].top7Count++;
+      typeStats[userId].ranks.push(rank);
+    });
+  }
+
+  const sorted = Object.values(typeStats).sort((a, b) => b.totalPoints - a.totalPoints);
+  const totalPages = Math.ceil(sorted.length / perPage);
+  const slice = sorted.slice((page - 1) * perPage, page * perPage);
+  return { slice, totalPages, sorted };
+}
+
 let cache = {};
 let previousCache = {};
 let playerStats = {};
@@ -368,7 +404,6 @@ async function checkAlerts(newCache) {
     for (const newEntry of newEntries) {
       const oldEntry = oldEntries.find(e => e.user_id === newEntry.user_id || e.username === newEntry.username);
 
-      // WR alert
       if (newEntry.rank === 1) {
         const oldWr = oldEntries.find(e => e.rank === 1);
         const isNewWr = !oldWr || oldWr.username !== newEntry.username || oldWr.record !== newEntry.record;
@@ -382,10 +417,8 @@ async function checkAlerts(newCache) {
         }
       }
 
-      // Top 7 alert
       if (newEntry.rank >= 2 && newEntry.rank <= 7) {
         const wasAlreadyTop7 = oldEntry && oldEntry.rank <= 7;
-
         if (!wasAlreadyTop7 && top7Channel) {
           const embed = new EmbedBuilder()
             .setTitle('New Top 7')
@@ -393,7 +426,7 @@ async function checkAlerts(newCache) {
             .setDescription(`**${newEntry.username}** entered the top 7 on **${getChallengeName(challengeId)}**\nRank **#${newEntry.rank}** — Time: **${formatTime(newEntry.record)}**`)
             .setTimestamp();
           top7Channel.send({ embeds: [embed] }).catch(console.error);
-        } else if (wasAlreadyTop7 && oldEntry.record !== newEntry.record && top7Channel) {
+        } else if (wasAlreadyTop7 && newEntry.record < oldEntry.record && top7Channel) {
           const embed = new EmbedBuilder()
             .setTitle('Top 7 Personal Best')
             .setColor(0x1abc9c)
@@ -403,17 +436,15 @@ async function checkAlerts(newCache) {
         }
       }
 
-      // PB alert — any rank, only if time actually improved
-if (oldEntry && newEntry.record < oldEntry.record && pbChannel) {
-  const embed = new EmbedBuilder()
-    .setTitle('Personal Best')
-    .setColor(0x3498db)
-    .setDescription(`**${newEntry.username}** improved on **${getChallengeName(challengeId)}**\nRank **#${newEntry.rank}** — **${formatTime(oldEntry.record)}** -> **${formatTime(newEntry.record)}**`)
-    .setTimestamp();
-  pbChannel.send({ embeds: [embed] }).catch(console.error);
-}
+      if (oldEntry && newEntry.record < oldEntry.record && pbChannel) {
+        const embed = new EmbedBuilder()
+          .setTitle('Personal Best')
+          .setColor(0x3498db)
+          .setDescription(`**${newEntry.username}** improved on **${getChallengeName(challengeId)}**\nRank **#${newEntry.rank}** — **${formatTime(oldEntry.record)}** -> **${formatTime(newEntry.record)}**`)
+          .setTimestamp();
+        pbChannel.send({ embeds: [embed] }).catch(console.error);
+      }
 
-      // New top 100 entry — player wasn't in the cache before
       if (!oldEntry && pbChannel) {
         const embed = new EmbedBuilder()
           .setTitle('New Top 100 Entry')
@@ -428,18 +459,17 @@ if (oldEntry && newEntry.record < oldEntry.record && pbChannel) {
 
 async function buildCache() {
   console.log(`Fetching ${CHALLENGE_IDS.length} challenges...`);
-  // Load from file if previousCache is empty (first run after restart)
-if (Object.keys(previousCache).length === 0 && fs.existsSync(CACHE_FILE)) {
-  try {
-    previousCache = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
-    console.log('Loaded previous cache from file.');
-  } catch (e) {
-    console.error('Failed to load cache file:', e.message);
+  if (Object.keys(previousCache).length === 0 && fs.existsSync(CACHE_FILE)) {
+    try {
+      previousCache = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
+      console.log('Loaded previous cache from file.');
+    } catch (e) {
+      console.error('Failed to load cache file:', e.message);
+    }
+  } else {
+    previousCache = { ...cache };
   }
-} else {
-  previousCache = { ...cache };
-}
-cache = {};
+  cache = {};
   playerStats = {};
 
   const ALL_IDS = [...new Set([...CHALLENGE_IDS, ...ZDRIFT_IDS])];
@@ -475,11 +505,7 @@ cache = {};
       if (rank === 1) playerStats[userId].wrCount++;
       if (rank <= 7) playerStats[userId].top7Count++;
       playerStats[userId].ranks.push(rank);
-      playerStats[userId].challenges.push({
-        challengeId,
-        rank,
-        record: entry.record
-      });
+      playerStats[userId].challenges.push({ challengeId, rank, record: entry.record });
     });
   }
 
@@ -489,11 +515,11 @@ cache = {};
 
   lastUpdated = new Date();
   console.log(`Cache built! ${Object.keys(playerStats).length} players found.`);
-try {
-  fs.writeFileSync(CACHE_FILE, JSON.stringify(cache));
-} catch (e) {
-  console.error('Failed to save cache file:', e.message);
-}
+  try {
+    fs.writeFileSync(CACHE_FILE, JSON.stringify(cache));
+  } catch (e) {
+    console.error('Failed to save cache file:', e.message);
+  }
 }
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
@@ -510,7 +536,7 @@ client.on('interactionCreate', async interaction => {
     const { commandName } = interaction;
     const focused = interaction.options.getFocused().toLowerCase();
 
-    if (commandName === 'stats' || commandName === 'improve' || commandName === '1v1' || commandName === 'summary') {
+    if (commandName === 'stats' || commandName === 'improve' || commandName === '1v1' || commandName === 'summary' || commandName === 'zdriftimprove') {
       const matches = Object.values(playerStats)
         .filter(p => p.name.toLowerCase().includes(focused))
         .sort((a, b) => b.totalPoints - a.totalPoints)
@@ -542,15 +568,11 @@ client.on('interactionCreate', async interaction => {
     const totalPages = Math.ceil(sorted.length / perPage);
     const slice = sorted.slice((page - 1) * perPage, page * perPage);
 
-    if (slice.length === 0) {
-      return interaction.editReply('No data yet, try again in a moment.');
-    }
+    if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
 
     const lines = slice.map((p, i) => {
       const rank = (page - 1) * perPage + i + 1;
-      const avgRank = p.ranks.length
-        ? (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1)
-        : 'N/A';
+      const avgRank = p.ranks.length ? (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1) : 'N/A';
       return `#${rank} **${p.name}** — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
     });
 
@@ -570,16 +592,11 @@ client.on('interactionCreate', async interaction => {
     const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name)
       || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name));
 
-    if (!player) {
-      return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
-    }
+    if (!player) return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
 
     const sorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
     const globalRank = sorted.findIndex(p => p.name === player.name) + 1;
-
-    const avgRank = player.ranks.length
-      ? (player.ranks.reduce((a, b) => a + b, 0) / player.ranks.length).toFixed(1)
-      : 'N/A';
+    const avgRank = player.ranks.length ? (player.ranks.reduce((a, b) => a + b, 0) / player.ranks.length).toFixed(1) : 'N/A';
 
     const summaryEmbed = new EmbedBuilder()
       .setTitle(player.name.slice(0, 256))
@@ -595,7 +612,6 @@ client.on('interactionCreate', async interaction => {
 
     await interaction.editReply({ embeds: [summaryEmbed] });
 
-    // Split challenge list into chunks of 4096 chars and send as follow-up messages
     const challengeLines = player.challenges
       .sort((a, b) => a.rank - b.rank)
       .map(c => `#${c.rank} **${getChallengeName(c.challengeId)}** — ${formatTime(c.record)}`);
@@ -630,15 +646,10 @@ client.on('interactionCreate', async interaction => {
   else if (commandName === 'challenge') {
     await interaction.deferReply();
     const id = interaction.options.getString('id').toUpperCase();
-
     const entries = cache[id];
-    if (!entries || entries.length === 0) {
-      return interaction.editReply(`No data found for challenge ID \`${id}\`.`);
-    }
+    if (!entries || entries.length === 0) return interaction.editReply(`No data found for challenge ID \`${id}\`.`);
 
-    const lines = entries.slice(0, 20).map(e => {
-      return `#${e.rank} **${e.username}** — ${formatTime(e.record)}`;
-    });
+    const lines = entries.slice(0, 20).map(e => `#${e.rank} **${e.username}** — ${formatTime(e.record)}`);
 
     const embed = new EmbedBuilder()
       .setTitle(`Challenge: ${getChallengeName(id)}`)
@@ -658,9 +669,7 @@ client.on('interactionCreate', async interaction => {
     const totalPages = Math.ceil(sorted.length / perPage);
     const slice = sorted.slice((page - 1) * perPage, page * perPage);
 
-    if (slice.length === 0) {
-      return interaction.editReply('No data yet, try again in a moment.');
-    }
+    if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
 
     const lines = slice.map((p, i) => {
       const rank = (page - 1) * perPage + i + 1;
@@ -685,9 +694,7 @@ client.on('interactionCreate', async interaction => {
     const totalPages = Math.ceil(sorted.length / perPage);
     const slice = sorted.slice((page - 1) * perPage, page * perPage);
 
-    if (slice.length === 0) {
-      return interaction.editReply('No data yet, try again in a moment.');
-    }
+    if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
 
     const lines = slice.map((p, i) => {
       const rank = (page - 1) * perPage + i + 1;
@@ -722,9 +729,7 @@ client.on('interactionCreate', async interaction => {
     const totalPages = Math.ceil(sorted.length / perPage);
     const slice = sorted.slice((page - 1) * perPage, page * perPage);
 
-    if (slice.length === 0) {
-      return interaction.editReply('No data yet, try again in a moment.');
-    }
+    if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
 
     const lines = slice.map((p, i) => {
       const rank = (page - 1) * perPage + i + 1;
@@ -748,24 +753,15 @@ client.on('interactionCreate', async interaction => {
     const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name)
       || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name));
 
-    if (!player) {
-      return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
-    }
+    if (!player) return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
 
     const playerChallengeIds = new Set(player.challenges.map(c => c.challengeId));
     const missing = CHALLENGE_IDS.filter(id => !playerChallengeIds.has(id));
 
-    if (missing.length === 0) {
-      return interaction.editReply(`**${player.name}** has a top 100 entry on every challenge!`);
-    }
+    if (missing.length === 0) return interaction.editReply(`**${player.name}** has a top 100 entry on every challenge!`);
 
     const lines = missing.map(id => `- **${getChallengeName(id)}**`);
-
-    const description = [
-      `**${player.name}** has no top 100 entry on ${missing.length} challenge${missing.length === 1 ? '' : 's'}:`,
-      ``,
-      lines.join('\n'),
-    ].join('\n');
+    const description = [`**${player.name}** has no top 100 entry on ${missing.length} challenge${missing.length === 1 ? '' : 's'}:`, ``, lines.join('\n')].join('\n');
 
     const embed = new EmbedBuilder()
       .setTitle(`${player.name} — Challenges to Improve`)
@@ -813,7 +809,6 @@ client.on('interactionCreate', async interaction => {
     }
 
     let p1Score = 0, p2Score = 0;
-
     if (rank1 < rank2) p1Score++; else if (rank2 < rank1) p2Score++;
     if (p1.totalPoints > p2.totalPoints) p1Score++; else if (p2.totalPoints > p1.totalPoints) p2Score++;
     if (p1.wrCount > p2.wrCount) p1Score++; else if (p2.wrCount > p1.wrCount) p2Score++;
@@ -839,7 +834,7 @@ client.on('interactionCreate', async interaction => {
       `**Verdict:** ${verdict}`,
     ].join('\n');
 
-const embed = new EmbedBuilder()
+    const embed = new EmbedBuilder()
       .setTitle(`1v1: ${p1.name} vs ${p2.name}`)
       .setColor(winner === p1.name ? 0x5865f2 : winner === p2.name ? 0xe74c3c : 0x95a5a6)
       .setDescription(description)
@@ -854,7 +849,6 @@ const embed = new EmbedBuilder()
     const perPage = 30;
 
     const zdriftStats = {};
-
     for (const id of ZDRIFT_IDS) {
       const entries = cache[id];
       if (!entries) continue;
@@ -864,14 +858,7 @@ const embed = new EmbedBuilder()
         const name = entry.username || 'Unknown';
         const userId = entry.user_id || name;
         if (!zdriftStats[userId]) {
-          zdriftStats[userId] = {
-            name,
-            totalPoints: 0,
-            wrCount: 0,
-            top7Count: 0,
-            top100Count: 0,
-            ranks: [],
-          };
+          zdriftStats[userId] = { name, totalPoints: 0, wrCount: 0, top7Count: 0, top100Count: 0, ranks: [] };
         }
         zdriftStats[userId].totalPoints += getPoints(rank);
         zdriftStats[userId].top100Count++;
@@ -885,15 +872,11 @@ const embed = new EmbedBuilder()
     const totalPages = Math.ceil(sorted.length / perPage);
     const slice = sorted.slice((page - 1) * perPage, page * perPage);
 
-    if (slice.length === 0) {
-      return interaction.editReply('No data yet, try again in a moment.');
-    }
+    if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
 
     const lines = slice.map((p, i) => {
       const rank = (page - 1) * perPage + i + 1;
-      const avgRank = p.ranks.length
-        ? (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1)
-        : 'N/A';
+      const avgRank = p.ranks.length ? (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1) : 'N/A';
       return `#${rank} **${p.name}** — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
     });
 
@@ -913,20 +896,121 @@ const embed = new EmbedBuilder()
     const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name)
       || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name));
 
-    if (!player) {
-      return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
-    }
+    if (!player) return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
 
     const sorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
     const globalRank = sorted.findIndex(p => p.name === player.name) + 1;
-    const avgRank = player.ranks.length
-      ? (player.ranks.reduce((a, b) => a + b, 0) / player.ranks.length).toFixed(1)
-      : 'N/A';
+    const avgRank = player.ranks.length ? (player.ranks.reduce((a, b) => a + b, 0) / player.ranks.length).toFixed(1) : 'N/A';
 
     const embed = new EmbedBuilder()
       .setTitle(player.name.slice(0, 256))
       .setColor(0x5865f2)
       .setDescription(`#${globalRank} globally | ${player.totalPoints.toLocaleString()} pts | ${player.wrCount} WRs | ${player.top7Count} Top 7s | ${player.top100Count} Top 100s | Avg Rank: ${avgRank}`)
+      .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+
+    return interaction.editReply({ embeds: [embed] });
+  }
+
+  else if (commandName === 'permleaderboard') {
+    await interaction.deferReply();
+    const page = interaction.options.getInteger('page') || 1;
+    const perPage = 30;
+    const { slice, totalPages } = buildTypeLeaderboard(['perm'], page, perPage);
+
+    if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
+
+    const lines = slice.map((p, i) => {
+      const rank = (page - 1) * perPage + i + 1;
+      const avgRank = p.ranks.length ? (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1) : 'N/A';
+      return `#${rank} **${p.name}** — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
+    });
+
+    const embed = new EmbedBuilder()
+      .setTitle('Permanent Challenges Leaderboard')
+      .setColor(0x3498db)
+      .setDescription(lines.join('\n'))
+      .setFooter({ text: `Page ${page}/${totalPages} • Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+
+    interaction.editReply({ embeds: [embed] });
+  }
+
+  else if (commandName === 'weeklyleaderboard') {
+    await interaction.deferReply();
+    const page = interaction.options.getInteger('page') || 1;
+    const perPage = 30;
+    const { slice, totalPages } = buildTypeLeaderboard(['kazz_easy', 'kazz_hard'], page, perPage);
+
+    if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
+
+    const lines = slice.map((p, i) => {
+      const rank = (page - 1) * perPage + i + 1;
+      const avgRank = p.ranks.length ? (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1) : 'N/A';
+      return `#${rank} **${p.name}** — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
+    });
+
+    const embed = new EmbedBuilder()
+      .setTitle('Kazzmania Weekly Leaderboard')
+      .setColor(0xe67e22)
+      .setDescription(lines.join('\n'))
+      .setFooter({ text: `Page ${page}/${totalPages} • Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+
+    interaction.editReply({ embeds: [embed] });
+  }
+
+  else if (commandName === 'racingleaderboard') {
+    await interaction.deferReply();
+    const page = interaction.options.getInteger('page') || 1;
+    const perPage = 30;
+    const { slice, totalPages } = buildTypeLeaderboard(['weekly_race'], page, perPage);
+
+    if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
+
+    const lines = slice.map((p, i) => {
+      const rank = (page - 1) * perPage + i + 1;
+      const avgRank = p.ranks.length ? (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1) : 'N/A';
+      return `#${rank} **${p.name}** — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
+    });
+
+    const embed = new EmbedBuilder()
+      .setTitle('Racing Weekly Leaderboard')
+      .setColor(0xe74c3c)
+      .setDescription(lines.join('\n'))
+      .setFooter({ text: `Page ${page}/${totalPages} • Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+
+    interaction.editReply({ embeds: [embed] });
+  }
+
+  else if (commandName === 'zdriftimprove') {
+    await interaction.deferReply();
+    const name = interaction.options.getString('name').toLowerCase();
+
+    const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name)
+      || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name));
+
+    if (!player) return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
+
+    const playerChallengeIds = new Set(player.challenges.map(c => c.challengeId));
+
+    // Also check zdrift cache entries for this player
+    const zdriftPlayerIds = new Set();
+    for (const id of ZDRIFT_IDS) {
+      const entries = cache[id];
+      if (!entries) continue;
+      const found = entries.find(e => e.username && e.username.toLowerCase() === player.name.toLowerCase());
+      if (found) zdriftPlayerIds.add(id);
+    }
+
+    const missing = ZDRIFT_IDS.filter(id => !zdriftPlayerIds.has(id));
+
+    if (missing.length === 0) return interaction.editReply(`**${player.name}** has a top 100 entry on every ZDrift challenge!`);
+
+    const lines = missing.map(id => `- **${getChallengeName(id)}**`);
+    const description = [`**${player.name}** has no top 100 entry on ${missing.length} ZDrift challenge${missing.length === 1 ? '' : 's'}:`, ``, lines.join('\n')].join('\n');
+
+    const embed = new EmbedBuilder()
+      .setTitle(`${player.name} — ZDrift Challenges to Improve`)
+      .setColor(0x2ecc71)
+      .setDescription(description.slice(0, 4096))
       .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
 
     return interaction.editReply({ embeds: [embed] });
