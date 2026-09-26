@@ -3,6 +3,8 @@ const axios = require('axios');
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const API_KEY = process.env.API_KEY;
+const fs = require('fs');
+const CACHE_FILE = './cache.json';
 
 // ============================================================
 // PASTE YOUR 259 CHALLENGE IDs HERE
@@ -401,8 +403,18 @@ async function checkAlerts(newCache) {
 
 async function buildCache() {
   console.log(`Fetching ${CHALLENGE_IDS.length} challenges...`);
+  // Load from file if previousCache is empty (first run after restart)
+if (Object.keys(previousCache).length === 0 && fs.existsSync(CACHE_FILE)) {
+  try {
+    previousCache = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
+    console.log('Loaded previous cache from file.');
+  } catch (e) {
+    console.error('Failed to load cache file:', e.message);
+  }
+} else {
   previousCache = { ...cache };
-  cache = {};
+}
+cache = {};
   playerStats = {};
 
   for (let i = 0; i < CHALLENGE_IDS.length; i++) {
@@ -451,6 +463,11 @@ async function buildCache() {
 
   lastUpdated = new Date();
   console.log(`Cache built! ${Object.keys(playerStats).length} players found.`);
+try {
+  fs.writeFileSync(CACHE_FILE, JSON.stringify(cache));
+} catch (e) {
+  console.error('Failed to save cache file:', e.message);
+}
 }
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
