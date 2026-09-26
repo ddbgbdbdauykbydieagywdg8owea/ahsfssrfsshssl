@@ -553,6 +553,26 @@ client.on('interactionCreate', async interaction => {
         .map(id => ({ name: getChallengeName(id), value: id }));
       return interaction.respond(matches);
     }
+
+    if (commandName === 'findbywr') {
+      const ALL_IDS = [...new Set([...CHALLENGE_IDS, ...ZDRIFT_IDS])];
+      const matches = [];
+
+      for (const id of ALL_IDS) {
+        const entries = cache[id];
+        if (!entries) continue;
+        const wr = entries.find(e => e.rank === 1);
+        if (!wr) continue;
+        const timeStr = formatTime(wr.record);
+        const name = getChallengeName(id);
+        const label = `${name} — ${timeStr}`;
+        if (label.toLowerCase().includes(focused) || timeStr.includes(focused)) {
+          matches.push({ name: label.slice(0, 100), value: timeStr });
+        }
+      }
+
+      return interaction.respond(matches.slice(0, 25));
+    }
   }
 
   if (!interaction.isChatInputCommand()) return;
