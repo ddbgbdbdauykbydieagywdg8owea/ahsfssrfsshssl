@@ -51,6 +51,11 @@ const commands = [
     .setDescription('Quick overview of a player')
     .addStringOption(opt =>
       opt.setName('name').setDescription('Player name').setRequired(true).setAutocomplete(true)),
+  new SlashCommandBuilder()
+    .setName('zdriftleaderboard')
+    .setDescription('ZDrift leaderboard ranked by points')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
 ].map(c => c.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(BOT_TOKEN);
