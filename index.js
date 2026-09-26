@@ -520,7 +520,8 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (commandName === 'challenge') {
-      const matches = CHALLENGE_IDS
+      const ALL_CHALLENGE_IDS = [...new Set([...CHALLENGE_IDS, ...ZDRIFT_IDS])];
+      const matches = ALL_CHALLENGE_IDS
         .filter(id => getChallengeName(id).toLowerCase().includes(focused) || id.toLowerCase().includes(focused))
         .slice(0, 25)
         .map(id => ({ name: getChallengeName(id), value: id }));
