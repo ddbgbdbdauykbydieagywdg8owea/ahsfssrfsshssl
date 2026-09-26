@@ -905,6 +905,32 @@ const embed = new EmbedBuilder()
     interaction.editReply({ embeds: [embed] });
   }
 
+  else if (commandName === 'summary') {
+    await interaction.deferReply();
+    const name = interaction.options.getString('name').toLowerCase();
+
+    const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name)
+      || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name));
+
+    if (!player) {
+      return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
+    }
+
+    const sorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
+    const globalRank = sorted.findIndex(p => p.name === player.name) + 1;
+    const avgRank = player.ranks.length
+      ? (player.ranks.reduce((a, b) => a + b, 0) / player.ranks.length).toFixed(1)
+      : 'N/A';
+
+    const embed = new EmbedBuilder()
+      .setTitle(player.name.slice(0, 256))
+      .setColor(0x5865f2)
+      .setDescription(`#${globalRank} globally | ${player.totalPoints.toLocaleString()} pts | ${player.wrCount} WRs | ${player.top7Count} Top 7s | ${player.top100Count} Top 100s | Avg Rank: ${avgRank}`)
+      .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+
+    return interaction.editReply({ embeds: [embed] });
+  }
+
 });
 
 client.login(BOT_TOKEN);
