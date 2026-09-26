@@ -977,11 +977,43 @@ client.on('interactionCreate', async interaction => {
     interaction.editReply({ embeds: [embed] });
   }
 
-  else if (commandName === 'racingleaderboard') {
+else if (commandName === 'racingleaderboard') {
     await interaction.deferReply();
     const page = interaction.options.getInteger('page') || 1;
     const perPage = 30;
-    const { slice, totalPages } = buildTypeLeaderboard(['weekly_race'], page, perPage);
+
+    // Only include WeeklyRace22 and above
+    const raceIds = Object.entries(CHALLENGE_NAMES)
+      .filter(([id, data]) => {
+        if (data.type !== 'weekly_race') return false;
+        const match = data.name.match(/WeeklyRace(\d+)/i);
+        return match && parseInt(match[1]) >= 22;
+      })
+      .map(([id]) => id);
+
+    const raceStats = {};
+    for (const id of raceIds) {
+      const entries = cache[id];
+      if (!entries) continue;
+      entries.forEach(entry => {
+        const rank = entry.rank;
+        if (rank > 100) return;
+        const name = entry.username || 'Unknown';
+        const userId = entry.user_id || name;
+        if (!raceStats[userId]) {
+          raceStats[userId] = { name, totalPoints: 0, wrCount: 0, top7Count: 0, top100Count: 0, ranks: [] };
+        }
+        raceStats[userId].totalPoints += getPoints(rank);
+        raceStats[userId].top100Count++;
+        if (rank === 1) raceStats[userId].wrCount++;
+        if (rank <= 7) raceStats[userId].top7Count++;
+        raceStats[userId].ranks.push(rank);
+      });
+    }
+
+    const sorted = Object.values(raceStats).sort((a, b) => b.totalPoints - a.totalPoints);
+    const totalPages = Math.ceil(sorted.length / perPage);
+    const slice = sorted.slice((page - 1) * perPage, page * perPage);
 
     if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
 
@@ -992,7 +1024,7 @@ client.on('interactionCreate', async interaction => {
     });
 
     const embed = new EmbedBuilder()
-      .setTitle('Racing Weekly Leaderboard')
+      .setTitle('Racing Weekly Leaderboard (Race 22+)')
       .setColor(0xe74c3c)
       .setDescription(lines.join('\n'))
       .setFooter({ text: `Page ${page}/${totalPages} • Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
