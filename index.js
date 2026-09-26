@@ -283,6 +283,7 @@ function getChallengeName(id) {
 // ============================================================
 const WR_CHANNEL_ID = '1552454751923470348';
 const TOP7_CHANNEL_ID = '1552455130069340230';
+const PB_CHANNEL_ID = '1553443043653193729';
 
 const POINTS = [
   0,
@@ -332,6 +333,7 @@ async function fetchChallenge(id) {
 async function checkAlerts(newCache) {
   const wrChannel = client.channels.cache.get(WR_CHANNEL_ID);
   const top7Channel = client.channels.cache.get(TOP7_CHANNEL_ID);
+  const pbChannel = client.channels.cache.get(PB_CHANNEL_ID);
 
   for (const [challengeId, newEntries] of Object.entries(newCache)) {
     const oldEntries = previousCache[challengeId] || [];
@@ -339,6 +341,7 @@ async function checkAlerts(newCache) {
     for (const newEntry of newEntries) {
       const oldEntry = oldEntries.find(e => e.user_id === newEntry.user_id || e.username === newEntry.username);
 
+      // WR alert
       if (newEntry.rank === 1) {
         const oldWr = oldEntries.find(e => e.rank === 1);
         const isNewWr = !oldWr || oldWr.username !== newEntry.username || oldWr.record !== newEntry.record;
@@ -352,8 +355,10 @@ async function checkAlerts(newCache) {
         }
       }
 
+      // Top 7 alert
       if (newEntry.rank >= 2 && newEntry.rank <= 7) {
         const wasAlreadyTop7 = oldEntry && oldEntry.rank <= 7;
+
         if (!wasAlreadyTop7 && top7Channel) {
           const embed = new EmbedBuilder()
             .setTitle('New Top 7')
@@ -361,7 +366,34 @@ async function checkAlerts(newCache) {
             .setDescription(`**${newEntry.username}** entered the top 7 on **${getChallengeName(challengeId)}**\nRank **#${newEntry.rank}** — Time: **${formatTime(newEntry.record)}**`)
             .setTimestamp();
           top7Channel.send({ embeds: [embed] }).catch(console.error);
+        } else if (wasAlreadyTop7 && oldEntry.record !== newEntry.record && top7Channel) {
+          const embed = new EmbedBuilder()
+            .setTitle('Top 7 Personal Best')
+            .setColor(0x1abc9c)
+            .setDescription(`**${newEntry.username}** improved their time on **${getChallengeName(challengeId)}**\nRank **#${newEntry.rank}** — **${formatTime(oldEntry.record)}** -> **${formatTime(newEntry.record)}**`)
+            .setTimestamp();
+          top7Channel.send({ embeds: [embed] }).catch(console.error);
         }
+      }
+
+      // PB alert — any rank, any improvement
+      if (oldEntry && oldEntry.record !== newEntry.record && pbChannel) {
+        const embed = new EmbedBuilder()
+          .setTitle('Personal Best')
+          .setColor(0x3498db)
+          .setDescription(`**${newEntry.username}** improved on **${getChallengeName(challengeId)}**\nRank **#${newEntry.rank}** — **${formatTime(oldEntry.record)}** -> **${formatTime(newEntry.record)}**`)
+          .setTimestamp();
+        pbChannel.send({ embeds: [embed] }).catch(console.error);
+      }
+
+      // New top 100 entry — player wasn't in the cache before
+      if (!oldEntry && pbChannel) {
+        const embed = new EmbedBuilder()
+          .setTitle('New Top 100 Entry')
+          .setColor(0x95a5a6)
+          .setDescription(`**${newEntry.username}** entered the top 100 on **${getChallengeName(challengeId)}**\nRank **#${newEntry.rank}** — Time: **${formatTime(newEntry.record)}**`)
+          .setTimestamp();
+        pbChannel.send({ embeds: [embed] }).catch(console.error);
       }
     }
   }
