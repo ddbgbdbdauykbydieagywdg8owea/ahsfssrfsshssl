@@ -378,15 +378,15 @@ async function checkAlerts(newCache) {
         }
       }
 
-      // PB alert — any rank, any improvement
-      if (oldEntry && oldEntry.record !== newEntry.record && pbChannel) {
-        const embed = new EmbedBuilder()
-          .setTitle('Personal Best')
-          .setColor(0x3498db)
-          .setDescription(`**${newEntry.username}** improved on **${getChallengeName(challengeId)}**\nRank **#${newEntry.rank}** — **${formatTime(oldEntry.record)}** -> **${formatTime(newEntry.record)}**`)
-          .setTimestamp();
-        pbChannel.send({ embeds: [embed] }).catch(console.error);
-      }
+      // PB alert — any rank, only if time actually improved
+if (oldEntry && newEntry.record < oldEntry.record && pbChannel) {
+  const embed = new EmbedBuilder()
+    .setTitle('Personal Best')
+    .setColor(0x3498db)
+    .setDescription(`**${newEntry.username}** improved on **${getChallengeName(challengeId)}**\nRank **#${newEntry.rank}** — **${formatTime(oldEntry.record)}** -> **${formatTime(newEntry.record)}**`)
+    .setTimestamp();
+  pbChannel.send({ embeds: [embed] }).catch(console.error);
+}
 
       // New top 100 entry — player wasn't in the cache before
       if (!oldEntry && pbChannel) {
