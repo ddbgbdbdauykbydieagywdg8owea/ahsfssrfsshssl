@@ -453,7 +453,7 @@ cache = {};
     await new Promise(r => setTimeout(r, 300));
   }
 
-  for (const [challengeId, entries] of Object.entries(cache)) {
+  for (const [challengeId, entries] of Object.entries(cache).filter(([id]) => !ZDRIFT_IDS.includes(id))) {
     entries.forEach(entry => {
       const rank = entry.rank;
       if (rank > 100) return;
