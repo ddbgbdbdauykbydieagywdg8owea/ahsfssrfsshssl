@@ -76,6 +76,16 @@ const commands = [
     .setDescription('Shows which ZDrift challenges a player has no top 100 entry on')
     .addStringOption(opt =>
       opt.setName('name').setDescription('Player name').setRequired(true).setAutocomplete(true)),
+  new SlashCommandBuilder()
+    .setName('zstats')
+    .setDescription('View a players full ZDrift stats')
+    .addStringOption(opt =>
+      opt.setName('name').setDescription('Player name').setRequired(true).setAutocomplete(true)),
+  new SlashCommandBuilder()
+    .setName('zsummary')
+    .setDescription('Quick ZDrift overview of a player')
+    .addStringOption(opt =>
+      opt.setName('name').setDescription('Player name').setRequired(true).setAutocomplete(true)),
 ].map(c => c.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(BOT_TOKEN);
