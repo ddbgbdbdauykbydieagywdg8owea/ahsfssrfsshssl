@@ -87,6 +87,11 @@ const commands = [
     .addStringOption(opt =>
       opt.setName('name').setDescription('Player name').setRequired(true).setAutocomplete(true)),
 ].map(c => c.toJSON());
+new SlashCommandBuilder()
+    .setName('findbywr')
+    .setDescription('Find a challenge by its world record time')
+    .addStringOption(opt =>
+      opt.setName('time').setDescription('WR time to search for (e.g. 12.345 or 1m 23.456s)').setRequired(true).setAutocomplete(true)),
 
 const rest = new REST({ version: '10' }).setToken(BOT_TOKEN);
 
