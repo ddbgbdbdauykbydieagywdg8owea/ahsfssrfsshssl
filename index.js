@@ -442,13 +442,14 @@ if (Object.keys(previousCache).length === 0 && fs.existsSync(CACHE_FILE)) {
 cache = {};
   playerStats = {};
 
-  for (let i = 0; i < CHALLENGE_IDS.length; i++) {
-    const id = CHALLENGE_IDS[i];
+  const ALL_IDS = [...new Set([...CHALLENGE_IDS, ...ZDRIFT_IDS])];
+  for (let i = 0; i < ALL_IDS.length; i++) {
+    const id = ALL_IDS[i];
     const data = await fetchChallenge(id);
     if (data && Array.isArray(data.top)) {
       cache[id] = data.top;
     }
-    if (i % 10 === 0) console.log(`  ${i + 1}/${CHALLENGE_IDS.length} fetched...`);
+    if (i % 10 === 0) console.log(`  ${i + 1}/${ALL_IDS.length} fetched...`);
     await new Promise(r => setTimeout(r, 300));
   }
 
