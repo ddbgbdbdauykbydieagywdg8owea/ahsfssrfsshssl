@@ -909,7 +909,7 @@ client.on('interactionCreate', async interaction => {
     interaction.editReply({ embeds: [embed] });
   }
 
-  else if (commandName === 'summary') {
+else if (commandName === 'summary') {
     await interaction.deferReply();
     const name = interaction.options.getString('name').toLowerCase();
 
@@ -918,14 +918,91 @@ client.on('interactionCreate', async interaction => {
 
     if (!player) return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
 
-    const sorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
-    const globalRank = sorted.findIndex(p => p.name === player.name) + 1;
+    // Global rank
+    const globalSorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
+    const globalRank = globalSorted.findIndex(p => p.name === player.name) + 1;
     const avgRank = player.ranks.length ? (player.ranks.reduce((a, b) => a + b, 0) / player.ranks.length).toFixed(1) : 'N/A';
+
+    // Perm rank
+    const permIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => d.type === 'perm').map(([id]) => id);
+    const permStats = {};
+    for (const id of permIds) {
+      const entries = cache[id];
+      if (!entries) continue;
+      entries.forEach(e => {
+        if (e.rank > 100) return;
+        const uid = e.user_id || e.username;
+        if (!permStats[uid]) permStats[uid] = { name: e.username, points: 0 };
+        permStats[uid].points += getPoints(e.rank);
+      });
+    }
+    const permSorted = Object.values(permStats).sort((a, b) => b.points - a.points);
+    const permRank = permSorted.findIndex(p => p.name === player.name) + 1;
+
+    // Weekly rank (kazz_easy + kazz_hard)
+    const weeklyIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => d.type === 'kazz_easy' || d.type === 'kazz_hard').map(([id]) => id);
+    const weeklyStats = {};
+    for (const id of weeklyIds) {
+      const entries = cache[id];
+      if (!entries) continue;
+      entries.forEach(e => {
+        if (e.rank > 100) return;
+        const uid = e.user_id || e.username;
+        if (!weeklyStats[uid]) weeklyStats[uid] = { name: e.username, points: 0 };
+        weeklyStats[uid].points += getPoints(e.rank);
+      });
+    }
+    const weeklySorted = Object.values(weeklyStats).sort((a, b) => b.points - a.points);
+    const weeklyRank = weeklySorted.findIndex(p => p.name === player.name) + 1;
+
+    // Racing rank (race 22+)
+    const raceIds = Object.entries(CHALLENGE_NAMES)
+      .filter(([id, d]) => {
+        if (d.type !== 'weekly_race') return false;
+        const match = d.name.match(/WeeklyRace(\d+)/i);
+        return match && parseInt(match[1]) >= 22;
+      })
+      .map(([id]) => id);
+    const raceStats = {};
+    for (const id of raceIds) {
+      const entries = cache[id];
+      if (!entries) continue;
+      entries.forEach(e => {
+        if (e.rank > 100) return;
+        const uid = e.user_id || e.username;
+        if (!raceStats[uid]) raceStats[uid] = { name: e.username, points: 0 };
+        raceStats[uid].points += getPoints(e.rank);
+      });
+    }
+    const raceSorted = Object.values(raceStats).sort((a, b) => b.points - a.points);
+    const raceRank = raceSorted.findIndex(p => p.name === player.name) + 1;
+
+    // ZDrift rank
+    const zdriftStats = {};
+    for (const id of ZDRIFT_IDS) {
+      const entries = cache[id];
+      if (!entries) continue;
+      entries.forEach(e => {
+        if (e.rank > 100) return;
+        const uid = e.user_id || e.username;
+        if (!zdriftStats[uid]) zdriftStats[uid] = { name: e.username, points: 0 };
+        zdriftStats[uid].points += getPoints(e.rank);
+      });
+    }
+    const zdriftSorted = Object.values(zdriftStats).sort((a, b) => b.points - a.points);
+    const zdriftRank = zdriftSorted.findIndex(p => p.name === player.name) + 1;
 
     const embed = new EmbedBuilder()
       .setTitle(player.name.slice(0, 256))
       .setColor(0x5865f2)
-      .setDescription(`#${globalRank} globally | ${player.totalPoints.toLocaleString()} pts | ${player.wrCount} WRs | ${player.top7Count} Top 7s | ${player.top100Count} Top 100s | Avg Rank: ${avgRank}`)
+      .setDescription([
+        `**Global Rank:** #${globalRank} | ${player.totalPoints.toLocaleString()} pts | Avg Rank: ${avgRank}`,
+        `**Perm Rank:** ${permRank > 0 ? `#${permRank}` : 'Unranked'}`,
+        `**Weekly Rank:** ${weeklyRank > 0 ? `#${weeklyRank}` : 'Unranked'}`,
+        `**Racing Rank:** ${raceRank > 0 ? `#${raceRank}` : 'Unranked'}`,
+        `**ZDrift Rank:** ${zdriftRank > 0 ? `#${zdriftRank}` : 'Unranked'}`,
+        `**WRs:** ${player.wrCount} | **Top 7s:** ${player.top7Count} | **Top 100s:** ${player.top100Count}`,
+      ].join('\n'))
       .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
 
     return interaction.editReply({ embeds: [embed] });
