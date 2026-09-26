@@ -56,6 +56,26 @@ const commands = [
     .setDescription('ZDrift leaderboard ranked by points')
     .addIntegerOption(opt =>
       opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('permleaderboard')
+    .setDescription('Leaderboard for permanent challenges only')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('weeklyleaderboard')
+    .setDescription('Leaderboard for Kazzmania weekly challenges')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('racingleaderboard')
+    .setDescription('Leaderboard for weekly race challenges')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('zdriftimprove')
+    .setDescription('Shows which ZDrift challenges a player has no top 100 entry on')
+    .addStringOption(opt =>
+      opt.setName('name').setDescription('Player name').setRequired(true).setAutocomplete(true)),
 ].map(c => c.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(BOT_TOKEN);
