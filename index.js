@@ -821,7 +821,7 @@ if (commandName === 'findbywr') {
     return interaction.editReply({ embeds: [embed] });
   }
 
-  else if (commandName === '1v1') {
+else if (commandName === '1v1') {
     await interaction.deferReply();
 
     const name1 = interaction.options.getString('player1').toLowerCase();
@@ -857,6 +857,42 @@ if (commandName === 'findbywr') {
       else ties++;
     }
 
+    // Perm comparison
+    const permIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => d.type === 'perm').map(([id]) => id);
+    let p1PermPoints = 0, p2PermPoints = 0;
+    for (const id of permIds) {
+      const c1 = p1Challenges.get(id);
+      const c2 = p2Challenges.get(id);
+      if (c1) p1PermPoints += getPoints(c1.rank);
+      if (c2) p2PermPoints += getPoints(c2.rank);
+    }
+
+    // Weekly comparison
+    const weeklyIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => d.type === 'kazz_easy' || d.type === 'kazz_hard').map(([id]) => id);
+    let p1WeeklyPoints = 0, p2WeeklyPoints = 0;
+    for (const id of weeklyIds) {
+      const c1 = p1Challenges.get(id);
+      const c2 = p2Challenges.get(id);
+      if (c1) p1WeeklyPoints += getPoints(c1.rank);
+      if (c2) p2WeeklyPoints += getPoints(c2.rank);
+    }
+
+    // Racing comparison
+    const raceIds = Object.entries(CHALLENGE_NAMES)
+      .filter(([id, d]) => {
+        if (d.type !== 'weekly_race') return false;
+        const match = d.name.match(/WeeklyRace(\d+)/i);
+        return match && parseInt(match[1]) >= 22;
+      })
+      .map(([id]) => id);
+    let p1RacePoints = 0, p2RacePoints = 0;
+    for (const id of raceIds) {
+      const c1 = p1Challenges.get(id);
+      const c2 = p2Challenges.get(id);
+      if (c1) p1RacePoints += getPoints(c1.rank);
+      if (c2) p2RacePoints += getPoints(c2.rank);
+    }
+
     let p1Score = 0, p2Score = 0;
     if (rank1 < rank2) p1Score++; else if (rank2 < rank1) p2Score++;
     if (p1.totalPoints > p2.totalPoints) p1Score++; else if (p2.totalPoints > p1.totalPoints) p2Score++;
@@ -865,6 +901,9 @@ if (commandName === 'findbywr') {
     if (p1.top100Count > p2.top100Count) p1Score++; else if (p2.top100Count > p1.top100Count) p2Score++;
     if (avg1 < avg2) p1Score++; else if (avg2 < avg1) p2Score++;
     if (p1Wins > p2Wins) p1Score++; else if (p2Wins > p1Wins) p2Score++;
+    if (p1PermPoints > p2PermPoints) p1Score++; else if (p2PermPoints > p1PermPoints) p2Score++;
+    if (p1WeeklyPoints > p2WeeklyPoints) p1Score++; else if (p2WeeklyPoints > p1WeeklyPoints) p2Score++;
+    if (p1RacePoints > p2RacePoints) p1Score++; else if (p2RacePoints > p1RacePoints) p2Score++;
 
     const winner = p1Score > p2Score ? p1.name : p2Score > p1Score ? p2.name : null;
     const verdict = winner
@@ -880,6 +919,10 @@ if (commandName === 'findbywr') {
       `**Avg Rank:** ${avg1.toFixed(1)} vs ${avg2.toFixed(1)}`,
       `**Head to Head (${sharedIds.length} shared challenges):** ${p1.name} ${p1Wins} — ${p2Wins} ${p2.name}${ties > 0 ? ` (${ties} tied)` : ''}`,
       ``,
+      `**Perm Points:** ${p1PermPoints.toLocaleString()} vs ${p2PermPoints.toLocaleString()} — ${p1PermPoints > p2PermPoints ? p1.name : p2PermPoints > p1PermPoints ? p2.name : 'Tied'}`,
+      `**Weekly Points:** ${p1WeeklyPoints.toLocaleString()} vs ${p2WeeklyPoints.toLocaleString()} — ${p1WeeklyPoints > p2WeeklyPoints ? p1.name : p2WeeklyPoints > p1WeeklyPoints ? p2.name : 'Tied'}`,
+      `**Racing Points:** ${p1RacePoints.toLocaleString()} vs ${p2RacePoints.toLocaleString()} — ${p1RacePoints > p2RacePoints ? p1.name : p2RacePoints > p1RacePoints ? p2.name : 'Tied'}`,
+      ``,
       `**Verdict:** ${verdict}`,
     ].join('\n');
 
@@ -891,32 +934,6 @@ if (commandName === 'findbywr') {
 
     return interaction.editReply({ embeds: [embed] });
   }
-
-  else if (commandName === 'zdriftleaderboard') {
-    await interaction.deferReply();
-    const page = interaction.options.getInteger('page') || 1;
-    const perPage = 30;
-
-    const zdriftStats = {};
-    for (const id of ZDRIFT_IDS) {
-      const entries = cache[id];
-      if (!entries) continue;
-      entries.forEach(entry => {
-        const rank = entry.rank;
-        if (rank > 100) return;
-        const name = entry.username || 'Unknown';
-        const userId = entry.user_id || name;
-        if (!zdriftStats[userId]) {
-          zdriftStats[userId] = { name, totalPoints: 0, wrCount: 0, top7Count: 0, top100Count: 0, ranks: [] };
-        }
-        zdriftStats[userId].totalPoints += getPoints(rank);
-        zdriftStats[userId].top100Count++;
-        if (rank === 1) zdriftStats[userId].wrCount++;
-        if (rank <= 7) zdriftStats[userId].top7Count++;
-        zdriftStats[userId].ranks.push(rank);
-      });
-    }
-
     const sorted = Object.values(zdriftStats).sort((a, b) => b.totalPoints - a.totalPoints);
     const totalPages = Math.ceil(sorted.length / perPage);
     const slice = sorted.slice((page - 1) * perPage, page * perPage);
