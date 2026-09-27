@@ -554,7 +554,7 @@ client.on('interactionCreate', async interaction => {
       return interaction.respond(matches);
     }
 
-    if (commandName === 'findbywr') {
+if (commandName === 'findbywr') {
       const ALL_IDS = [...new Set([...CHALLENGE_IDS, ...ZDRIFT_IDS])];
       const matches = [];
 
@@ -567,7 +567,7 @@ client.on('interactionCreate', async interaction => {
         const name = getChallengeName(id);
         const label = `${name} — ${timeStr}`;
         if (label.toLowerCase().includes(focused) || timeStr.includes(focused)) {
-          matches.push({ name: label.slice(0, 100), value: timeStr });
+          matches.push({ name: label.slice(0, 100), value: String(wr.record) });
         }
       }
 
@@ -1250,7 +1250,7 @@ else if (commandName === 'zsummary') {
     await interaction.deferReply();
     const input = interaction.options.getString('time').trim().toLowerCase();
 
-    let searchSeconds = null;
+let searchSeconds = null;
     const minSecMatch = input.match(/(\d+)m\s*([\d.]+)s?/);
     const colonMatch = input.match(/(\d+):([\d.]+)/);
     const plainMatch = input.match(/^[\d.]+$/);
@@ -1261,6 +1261,12 @@ else if (commandName === 'zsummary') {
       searchSeconds = parseInt(colonMatch[1]) * 60 + parseFloat(colonMatch[2]);
     } else if (plainMatch) {
       searchSeconds = parseFloat(input);
+    }
+
+    // Handle raw seconds passed from autocomplete
+    if (searchSeconds === null) {
+      const raw = parseFloat(input);
+      if (!isNaN(raw)) searchSeconds = raw;
     }
 
     if (searchSeconds === null) {
