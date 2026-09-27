@@ -955,7 +955,7 @@ else if (commandName === '1v1') {
     interaction.editReply({ embeds: [embed] });
   }
 
-else if (commandName === 'summary') {
+  else if (commandName === 'summary') {
     await interaction.deferReply();
     const name = interaction.options.getString('name').toLowerCase();
 
