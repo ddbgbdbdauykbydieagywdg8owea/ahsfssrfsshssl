@@ -316,6 +316,8 @@ function getChallengeType(id) {
 const WR_CHANNEL_ID = '1552454751923470348';
 const TOP7_CHANNEL_ID = '1552455130069340230';
 const PB_CHANNEL_ID = '1553443043653193729';
+const BOT_LOG_CHANNEL_ID = '1552857161732984852';
+const BOT_STATUS_CHANNEL_ID = '1552819221707104376';
 
 const POINTS = [
   0,
@@ -457,6 +459,11 @@ async function checkAlerts(newCache) {
   }
 }
 
+async function logToChannel(message) {
+  const logChannel = client.channels.cache.get(BOT_LOG_CHANNEL_ID);
+  if (logChannel) logChannel.send(message).catch(console.error);
+}
+
 async function buildCache() {
   console.log(`Fetching ${CHALLENGE_IDS.length} challenges...`);
   if (Object.keys(previousCache).length === 0 && fs.existsSync(CACHE_FILE)) {
@@ -478,8 +485,13 @@ async function buildCache() {
     const data = await fetchChallenge(id);
     if (data && Array.isArray(data.top)) {
       cache[id] = data.top;
+    } else {
+      logToChannel(`Failed to fetch challenge \`${getChallengeName(id)}\` (\`${id}\`)`);
     }
-    if (i % 10 === 0) console.log(`  ${i + 1}/${ALL_IDS.length} fetched...`);
+    if (i % 10 === 0) {
+      console.log(`  ${i + 1}/${ALL_IDS.length} fetched...`);
+      logToChannel(`Fetching cache... ${i + 1}/${ALL_IDS.length}`);
+    }
     await new Promise(r => setTimeout(r, 300));
   }
 
@@ -515,6 +527,22 @@ async function buildCache() {
 
   lastUpdated = new Date();
   console.log(`Cache built! ${Object.keys(playerStats).length} players found.`);
+  logToChannel(`Cache refreshed — ${Object.keys(cache).length} challenges | ${Object.keys(playerStats).length} players | ${new Date().toLocaleTimeString()}`);
+
+  // Update bot status channel name
+  try {
+    const statusChannel = client.channels.cache.get(BOT_STATUS_CHANNEL_ID);
+    if (statusChannel) {
+      const failCount = ALL_IDS.length - Object.keys(cache).length;
+      const newName = failCount > 0 ? '🔴│bot-status│🔴' : '🟢│bot-status│🟢';
+      if (statusChannel.name !== newName) {
+        await statusChannel.setName(newName);
+      }
+    }
+  } catch (e) {
+    console.error('Failed to update status channel name:', e.message);
+  }
+
   try {
     fs.writeFileSync(CACHE_FILE, JSON.stringify(cache));
   } catch (e) {
@@ -526,6 +554,7 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}`);
+  logToChannel(`Bot started — logged in as ${client.user.tag}`);
   await buildCache();
   setInterval(buildCache, 10 * 60 * 1000);
 });
