@@ -344,6 +344,8 @@ const TOP7_CHANNEL_ID = '1552455130069340230';
 const PB_CHANNEL_ID = '1553443043653193729';
 const BOT_LOG_CHANNEL_ID = '1552857161732984852';
 const BOT_STATUS_CHANNEL_ID = '1552819221707104376';
+const SPOTLIGHT_LIVE_CHANNEL_ID = '1557517483974590535';
+const SPOTLIGHT_WINNER_CHANNEL_ID = '1557517846580564008';
 
 const POINTS = [
   0,
@@ -406,6 +408,12 @@ let cache = {};
 let previousCache = {};
 let playerStats = {};
 let lastUpdated = null;
+let spotlightChallenge = null;
+let spotlightStartTime = null;
+let spotlightMessageId = null;
+let spotlightLastChallenge = null;
+let spotlightSnapshot = {}; // stores times at the start of the spotlight
+let spotlightNewTimes = []; // tracks new/improved times during the spotlight
 
 async function fetchChallenge(id) {
   try {
@@ -488,6 +496,99 @@ async function checkAlerts(newCache) {
 async function logToChannel(message) {
   const logChannel = client.channels.cache.get(BOT_LOG_CHANNEL_ID);
   if (logChannel) logChannel.send(message).catch(console.error);
+}
+
+async function updateSpotlightMessage() {
+  const channel = client.channels.cache.get(SPOTLIGHT_LIVE_CHANNEL_ID);
+  if (!channel || !spotlightChallenge) return;
+
+  const currentEntries = cache[spotlightChallenge] || [];
+  for (const entry of currentEntries) {
+    const snapshotEntry = spotlightSnapshot[entry.username];
+    const isNew = !snapshotEntry;
+    const isImproved = snapshotEntry && entry.record < snapshotEntry.record;
+    if (isNew || isImproved) {
+      const existing = spotlightNewTimes.findIndex(e => e.username === entry.username);
+      if (existing >= 0) {
+        spotlightNewTimes[existing] = { username: entry.username, record: entry.record };
+      } else {
+        spotlightNewTimes.push({ username: entry.username, record: entry.record });
+      }
+    }
+  }
+
+  const timeLeft = spotlightStartTime ? Math.max(0, 3 * 60 * 60 * 1000 - (Date.now() - spotlightStartTime)) : 0;
+  const minsLeft = Math.floor(timeLeft / 60000);
+  const secsLeft = Math.floor((timeLeft % 60000) / 1000);
+
+  const sorted = [...spotlightNewTimes].sort((a, b) => a.record - b.record);
+  const lines = sorted.slice(0, 20).map((e, i) => `#${i + 1} **${e.username}** — ${formatTime(e.record)}`);
+
+  const embed = new EmbedBuilder()
+    .setTitle(`Spotlight Challenge: ${getChallengeName(spotlightChallenge)}`)
+    .setColor(0xf5a623)
+    .setDescription(lines.length > 0 ? lines.join('\n') : 'No new times yet — be the first!')
+    .setFooter({ text: `Time remaining: ${minsLeft}m ${secsLeft}s • Updates every 10 minutes` });
+
+  try {
+    if (spotlightMessageId) {
+      const msg = await channel.messages.fetch(spotlightMessageId);
+      await msg.edit({ embeds: [embed] });
+    } else {
+      const msg = await channel.send({ embeds: [embed] });
+      spotlightMessageId = msg.id;
+    }
+  } catch (e) {
+    console.error('Failed to update spotlight message:', e.message);
+    spotlightMessageId = null;
+  }
+}
+
+async function startSpotlight() {
+  const permIds = Object.entries(CHALLENGE_NAMES)
+    .filter(([id, d]) => d.type === 'perm' && id !== spotlightLastChallenge)
+    .map(([id]) => id);
+
+  if (permIds.length === 0) return;
+
+  const randomId = permIds[Math.floor(Math.random() * permIds.length)];
+  spotlightChallenge = randomId;
+  spotlightLastChallenge = randomId;
+  spotlightStartTime = Date.now();
+  spotlightMessageId = null;
+  spotlightNewTimes = [];
+
+  const currentEntries = cache[randomId] || [];
+  spotlightSnapshot = {};
+  for (const entry of currentEntries) {
+    spotlightSnapshot[entry.username] = { record: entry.record, rank: entry.rank };
+  }
+
+  const channel = client.channels.cache.get(SPOTLIGHT_LIVE_CHANNEL_ID);
+  if (channel) {
+    channel.send(`**New Spotlight Challenge started!**\nChallenge: **${getChallengeName(randomId)}**\nYou have 3 hours to set a new time. Good luck!`).catch(console.error);
+  }
+
+  await updateSpotlightMessage();
+}
+
+async function endSpotlight() {
+  const winnerChannel = client.channels.cache.get(SPOTLIGHT_WINNER_CHANNEL_ID);
+  const sorted = [...spotlightNewTimes].sort((a, b) => a.record - b.record);
+
+  if (sorted.length > 0 && winnerChannel) {
+    const winner = sorted[0];
+    const embed = new EmbedBuilder()
+      .setTitle(`Spotlight Challenge Over!`)
+      .setColor(0xffd700)
+      .setDescription(`**Challenge:** ${getChallengeName(spotlightChallenge)}\n\nWinner: **${winner.username}**\nTime: **${formatTime(winner.record)}**\n\nA new challenge starts now!`)
+      .setTimestamp();
+    winnerChannel.send({ embeds: [embed] }).catch(console.error);
+  } else if (winnerChannel) {
+    winnerChannel.send(`**Spotlight Challenge Over!**\nChallenge: **${getChallengeName(spotlightChallenge)}**\nNo new times were set. A new challenge starts now!`).catch(console.error);
+  }
+
+await startSpotlight();
 }
 
 async function buildCache() {
@@ -583,6 +684,14 @@ client.once('ready', async () => {
   logToChannel(`Bot started — logged in as ${client.user.tag}`);
   await buildCache();
   setInterval(buildCache, 10 * 60 * 1000);
+  // Start spotlight after first cache build
+  setTimeout(async () => {
+    await startSpotlight();
+    // Update spotlight every 10 minutes
+    setInterval(updateSpotlightMessage, 10 * 60 * 1000);
+    // End and restart spotlight every 3 hours
+    setInterval(endSpotlight, 3 * 60 * 60 * 1000);
+  }, 5000);
 });
 
 client.on('interactionCreate', async interaction => {
