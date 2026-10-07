@@ -682,16 +682,12 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}`);
   logToChannel(`Bot started — logged in as ${client.user.tag}`);
-  await buildCache();
+await buildCache();
   setInterval(buildCache, 10 * 60 * 1000);
-  // Start spotlight after first cache build
-  setTimeout(async () => {
-    await startSpotlight();
-    // Update spotlight every 10 minutes
-    setInterval(updateSpotlightMessage, 10 * 60 * 1000);
-    // End and restart spotlight every 3 hours
-    setInterval(endSpotlight, 3 * 60 * 60 * 1000);
-  }, 5000);
+  // Start spotlight after first cache build is fully done
+  await startSpotlight();
+  setInterval(updateSpotlightMessage, 10 * 60 * 1000);
+  setInterval(endSpotlight, 3 * 60 * 60 * 1000);
 });
 
 client.on('interactionCreate', async interaction => {
