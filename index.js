@@ -655,7 +655,7 @@ async function buildCache() {
   lastUpdated = new Date();
   console.log(`Cache built! ${Object.keys(playerStats).length} players found.`);
   logToChannel(`Cache refreshed — ${Object.keys(cache).length} challenges | ${Object.keys(playerStats).length} players | ${new Date().toLocaleTimeString()}`);
-
+if (spotlightChallenge) await updateSpotlightMessage();
   // Update bot status channel name
   try {
     const statusChannel = client.channels.cache.get(BOT_STATUS_CHANNEL_ID);
@@ -686,7 +686,6 @@ await buildCache();
   setInterval(buildCache, 10 * 60 * 1000);
   // Start spotlight after first cache build is fully done
   await startSpotlight();
-  setInterval(updateSpotlightMessage, 10 * 60 * 1000);
   setInterval(endSpotlight, 3 * 60 * 60 * 1000);
 });
 
