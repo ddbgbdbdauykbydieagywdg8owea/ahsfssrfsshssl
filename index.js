@@ -569,7 +569,16 @@ async function startSpotlight() {
     channel.send(`**New Spotlight Challenge started!**\nChallenge: **${getChallengeName(randomId)}**\nYou have 3 hours to set a new time. Good luck!`).catch(console.error);
   }
 
-  await updateSpotlightMessage();
+  const liveChannel = client.channels.cache.get(SPOTLIGHT_LIVE_CHANNEL_ID);
+  if (liveChannel) {
+    const embed = new EmbedBuilder()
+      .setTitle(`Spotlight Challenge: ${getChallengeName(randomId)}`)
+      .setColor(0xf5a623)
+      .setDescription('No new times yet — be the first!')
+      .setFooter({ text: `Time remaining: 180m 0s • Updates every 10 minutes` });
+    const msg = await liveChannel.send({ embeds: [embed] });
+    spotlightMessageId = msg.id;
+  }
 }
 
 async function endSpotlight() {
