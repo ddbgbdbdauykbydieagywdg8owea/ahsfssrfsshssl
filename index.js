@@ -5,6 +5,9 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const API_KEY = process.env.API_KEY;
 const fs = require('fs');
 const CACHE_FILE = './cache.json';
+const OpenAI = require('openai');
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const askConversations = {};
 
 // ============================================================
 // PASTE YOUR 259 CHALLENGE IDs HERE
