@@ -91,6 +91,11 @@ const commands = [
     .setDescription('Find a challenge by its world record time')
     .addStringOption(opt =>
       opt.setName('time').setDescription('WR time to search for (e.g. 12.345 or 1m 23.456s)').setRequired(true).setAutocomplete(true)),
+  new SlashCommandBuilder()
+    .setName('ask')
+    .setDescription('Ask the AI anything about Orion Drift')
+    .addStringOption(opt =>
+      opt.setName('question').setDescription('Your question').setRequired(true)),
 ].map(c => c.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(BOT_TOKEN);
