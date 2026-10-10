@@ -1317,7 +1317,82 @@ else if (commandName === 'racingleaderboard') {
 
     interaction.editReply({ embeds: [embed] });
   }
+else if (commandName === 'ask') {
+    await interaction.deferReply();
+    const question = interaction.options.getString('question');
+    const userId = interaction.user.id;
 
+    // Build live data context
+    const globalSorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
+    const top10 = globalSorted.slice(0, 10).map((p, i) => `#${i + 1} ${p.name} — ${p.totalPoints.toLocaleString()} pts, ${p.wrCount} WRs`).join('\n');
+    const totalPlayers = globalSorted.length;
+    const totalChallenges = CHALLENGE_IDS.length;
+    const namedChallenges = Object.entries(CHALLENGE_NAMES).map(([id, d]) => `${d.name} (${d.type})`).join(', ');
+
+    const systemPrompt = `You are a helpful assistant for the game Orion Drift, a parkour/movement game.
+You have access to live leaderboard data updated every 10 minutes.
+
+Current Global Top 10:
+${top10}
+
+Total players tracked: ${totalPlayers}
+Total challenges: ${totalChallenges}
+Named challenges: ${namedChallenges}
+
+The points system:
+- 1st: 1000pts, 2nd: 980pts, 3rd: 960pts... down to 100th place
+- Players earn points across all challenges
+
+Challenge types:
+- perm: permanent challenges always available
+- kazz_easy / kazz_hard: Kazzmania weekly challenges
+- weekly_race: weekly racing challenges
+- zdrift: ZDrift specific challenges
+
+Be helpful, friendly and concise. Use the live data above to answer questions accurately.`;
+
+    if (!askConversations[userId]) {
+      askConversations[userId] = [{ role: 'system', content: systemPrompt }];
+    } else {
+      // Update system prompt with fresh data each time
+      askConversations[userId][0] = { role: 'system', content: systemPrompt };
+    }
+
+    askConversations[userId].push({ role: 'user', content: question });
+
+    // Keep last 20 messages
+    if (askConversations[userId].length > 21) {
+      askConversations[userId] = [
+        askConversations[userId][0],
+        ...askConversations[userId].slice(-20)
+      ];
+    }
+
+    try {
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: askConversations[userId],
+        max_tokens: 500,
+      });
+
+      const reply = response.choices[0].message.content;
+      askConversations[userId].push({ role: 'assistant', content: reply });
+
+      if (reply.length > 2000) {
+        const chunks = reply.match(/[\s\S]{1,2000}/g);
+        await interaction.editReply(chunks[0]);
+        for (let i = 1; i < chunks.length; i++) {
+          await interaction.followUp(chunks[i]);
+        }
+      } else {
+        return interaction.editReply(reply);
+      }
+    } catch (e) {
+      console.error('OpenAI error:', e.message);
+      return interaction.editReply('Sorry, I ran into an error. Try again in a moment.');
+    }
+  }
+  
   else if (commandName === 'zdriftimprove') {
     await interaction.deferReply();
     const name = interaction.options.getString('name').toLowerCase();
