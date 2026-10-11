@@ -1326,70 +1326,245 @@ else if (commandName === 'ask') {
     const userId = interaction.user.id;
 
     const tools = [
-      {
-        type: 'function',
-        function: {
-          name: 'get_challenge_leaderboard',
-          description: 'Get the top 20 for a specific challenge by name',
-          parameters: {
-            type: 'object',
-            properties: {
-              challenge_name: {
-                type: 'string',
-                description: 'The name of the challenge e.g. Verting, Wall Run'
-              }
-            },
-            required: ['challenge_name']
-          }
-        }
-      },
-      {
-        type: 'function',
-        function: {
-          name: 'get_player_stats',
-          description: 'Get full stats for a player by name',
-          parameters: {
-            type: 'object',
-            properties: {
-              player_name: {
-                type: 'string',
-                description: 'The player username'
-              }
-            },
-            required: ['player_name']
-          }
-        }
-      },
-      {
-        type: 'function',
-        function: {
-          name: 'get_leaderboard',
-          description: 'Get the global leaderboard',
-          parameters: {
-            type: 'object',
-            properties: {
-              page: {
-                type: 'integer',
-                description: 'Page number, 30 players per page'
-              }
-            },
-            required: ['page']
-          }
-        }
-      },
-      {
-        type: 'function',
-        function: {
-          name: 'get_wr_holders',
-          description: 'Get the world record holder and time for every named challenge',
-          parameters: {
-            type: 'object',
-            properties: {},
-            required: []
-          }
-        }
-      }
-    ];
+  // Player data
+  {
+    type: 'function',
+    function: {
+      name: 'get_player_stats',
+      description: 'Get full global stats for a player by name including rank, points, WRs, top7s, top100s, avg rank',
+      parameters: { type: 'object', properties: { player_name: { type: 'string', description: 'The player username' } }, required: ['player_name'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_player_challenges',
+      description: 'Get all challenge appearances for a player, sorted by best rank',
+      parameters: { type: 'object', properties: { player_name: { type: 'string', description: 'The player username' } }, required: ['player_name'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_player_wrs',
+      description: 'Get all world records held by a player',
+      parameters: { type: 'object', properties: { player_name: { type: 'string', description: 'The player username' } }, required: ['player_name'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_player_missing_challenges',
+      description: 'Get all challenges a player has no top 100 entry on',
+      parameters: { type: 'object', properties: { player_name: { type: 'string', description: 'The player username' } }, required: ['player_name'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_player_perm_stats',
+      description: 'Get perm challenge only stats for a player',
+      parameters: { type: 'object', properties: { player_name: { type: 'string', description: 'The player username' } }, required: ['player_name'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_player_weekly_stats',
+      description: 'Get Kazzmania weekly challenge only stats for a player',
+      parameters: { type: 'object', properties: { player_name: { type: 'string', description: 'The player username' } }, required: ['player_name'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_player_racing_stats',
+      description: 'Get racing challenge only stats for a player',
+      parameters: { type: 'object', properties: { player_name: { type: 'string', description: 'The player username' } }, required: ['player_name'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_player_zdrift_stats',
+      description: 'Get ZDrift challenge only stats for a player',
+      parameters: { type: 'object', properties: { player_name: { type: 'string', description: 'The player username' } }, required: ['player_name'] }
+    }
+  },
+  // Leaderboards
+  {
+    type: 'function',
+    function: {
+      name: 'get_leaderboard',
+      description: 'Get the global leaderboard ranked by points',
+      parameters: { type: 'object', properties: { page: { type: 'integer', description: 'Page number, 30 players per page' } }, required: ['page'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_perm_leaderboard',
+      description: 'Get the permanent challenges leaderboard',
+      parameters: { type: 'object', properties: { page: { type: 'integer', description: 'Page number' } }, required: ['page'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_weekly_leaderboard',
+      description: 'Get the Kazzmania weekly challenges leaderboard',
+      parameters: { type: 'object', properties: { page: { type: 'integer', description: 'Page number' } }, required: ['page'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_racing_leaderboard',
+      description: 'Get the racing challenges leaderboard (Race 22+)',
+      parameters: { type: 'object', properties: { page: { type: 'integer', description: 'Page number' } }, required: ['page'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_zdrift_leaderboard',
+      description: 'Get the ZDrift leaderboard',
+      parameters: { type: 'object', properties: { page: { type: 'integer', description: 'Page number' } }, required: ['page'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_top7_leaderboard',
+      description: 'Get the leaderboard ranked by number of top 7 finishes',
+      parameters: { type: 'object', properties: { page: { type: 'integer', description: 'Page number' } }, required: ['page'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_wr_leaderboard',
+      description: 'Get the leaderboard ranked by number of world records',
+      parameters: { type: 'object', properties: { page: { type: 'integer', description: 'Page number' } }, required: ['page'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_avg_leaderboard',
+      description: 'Get the leaderboard ranked by best average rank (top 100 players only)',
+      parameters: { type: 'object', properties: { page: { type: 'integer', description: 'Page number' } }, required: ['page'] }
+    }
+  },
+  // Challenges
+  {
+    type: 'function',
+    function: {
+      name: 'get_challenge_leaderboard',
+      description: 'Get the top 20 for a specific challenge by name',
+      parameters: { type: 'object', properties: { challenge_name: { type: 'string', description: 'The name of the challenge e.g. Verting, Wall Run' } }, required: ['challenge_name'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_wr_holders',
+      description: 'Get the world record holder and time for every named challenge',
+      parameters: { type: 'object', properties: {}, required: [] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_challenge_info',
+      description: 'Get name, type, WR holder and WR time for a specific challenge',
+      parameters: { type: 'object', properties: { challenge_name: { type: 'string', description: 'The name of the challenge' } }, required: ['challenge_name'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_all_challenges',
+      description: 'Get a list of all named challenges',
+      parameters: { type: 'object', properties: {}, required: [] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_perm_challenges',
+      description: 'Get a list of all permanent challenges',
+      parameters: { type: 'object', properties: {}, required: [] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_weekly_challenges',
+      description: 'Get a list of all Kazzmania weekly challenges',
+      parameters: { type: 'object', properties: {}, required: [] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_racing_challenges',
+      description: 'Get a list of all racing challenges',
+      parameters: { type: 'object', properties: {}, required: [] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_zdrift_challenges',
+      description: 'Get a list of all ZDrift challenges',
+      parameters: { type: 'object', properties: {}, required: [] }
+    }
+  },
+  // Comparisons
+  {
+    type: 'function',
+    function: {
+      name: 'compare_players',
+      description: 'Compare two players head to head',
+      parameters: { type: 'object', properties: { player1: { type: 'string', description: 'First player name' }, player2: { type: 'string', description: 'Second player name' } }, required: ['player1', 'player2'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'compare_on_challenge',
+      description: 'Compare two players on a specific challenge',
+      parameters: { type: 'object', properties: { player1: { type: 'string', description: 'First player name' }, player2: { type: 'string', description: 'Second player name' }, challenge_name: { type: 'string', description: 'Challenge name' } }, required: ['player1', 'player2', 'challenge_name'] }
+    }
+  },
+  // Spotlight
+  {
+    type: 'function',
+    function: {
+      name: 'get_spotlight',
+      description: 'Get the current spotlight challenge name, time remaining and leaderboard',
+      parameters: { type: 'object', properties: {}, required: [] }
+    }
+  },
+  // Stats/info
+  {
+    type: 'function',
+    function: {
+      name: 'get_bot_status',
+      description: 'Get cache size, player count and last update time',
+      parameters: { type: 'object', properties: {}, required: [] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_points_for_rank',
+      description: 'Get how many points a specific rank is worth',
+      parameters: { type: 'object', properties: { rank: { type: 'integer', description: 'The rank number 1-100' } }, required: ['rank'] }
+    }
+  },
+];
 
     const globalSorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
     const totalPlayers = globalSorted.length;
@@ -1407,7 +1582,9 @@ The points system:
 - 1st: 1000pts, 2nd: 980pts, 3rd: 960pts... down to 100th place
 - Players earn points across all challenges
 
-Keep all responses under 1900 characters. Be concise and avoid unnecessary padding.
+Keep all responses exactly 1975 characters. Be concise.
+
+This is a big thing, do NOT make up answers.
 
 Challenge types:
 - perm: permanent challenges always available
