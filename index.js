@@ -1325,26 +1325,89 @@ else if (commandName === 'ask') {
     const question = interaction.options.getString('question');
     const userId = interaction.user.id;
 
-    // Build live data context
+    const tools = [
+      {
+        type: 'function',
+        function: {
+          name: 'get_challenge_leaderboard',
+          description: 'Get the top 20 for a specific challenge by name',
+          parameters: {
+            type: 'object',
+            properties: {
+              challenge_name: {
+                type: 'string',
+                description: 'The name of the challenge e.g. Verting, Wall Run'
+              }
+            },
+            required: ['challenge_name']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'get_player_stats',
+          description: 'Get full stats for a player by name',
+          parameters: {
+            type: 'object',
+            properties: {
+              player_name: {
+                type: 'string',
+                description: 'The player username'
+              }
+            },
+            required: ['player_name']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'get_leaderboard',
+          description: 'Get the global leaderboard',
+          parameters: {
+            type: 'object',
+            properties: {
+              page: {
+                type: 'integer',
+                description: 'Page number, 30 players per page'
+              }
+            },
+            required: ['page']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'get_wr_holders',
+          description: 'Get the world record holder and time for every named challenge',
+          parameters: {
+            type: 'object',
+            properties: {},
+            required: []
+          }
+        }
+      }
+    ];
+
     const globalSorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
-    const top10 = globalSorted.slice(0, 10).map((p, i) => `#${i + 1} ${p.name} — ${p.totalPoints.toLocaleString()} pts, ${p.wrCount} WRs`).join('\n');
     const totalPlayers = globalSorted.length;
     const totalChallenges = CHALLENGE_IDS.length;
     const namedChallenges = Object.entries(CHALLENGE_NAMES).map(([id, d]) => `${d.name} (${d.type})`).join(', ');
 
     const systemPrompt = `You are a helpful assistant for the game Orion Drift, a parkour/movement game.
-You have access to live leaderboard data updated every 10 minutes.
-
-Current Global Top 10:
-${top10}
+You have access to live leaderboard data updated every 10 minutes via tools.
 
 Total players tracked: ${totalPlayers}
 Total challenges: ${totalChallenges}
-Named challenges: ${namedChallenges}
+Named challenges available: ${namedChallenges}
 
 The points system:
 - 1st: 1000pts, 2nd: 980pts, 3rd: 960pts... down to 100th place
 - Players earn points across all challenges
+
+Keep all responses under 1900 characters. Be concise and avoid unnecessary padding.
 
 Challenge types:
 - perm: permanent challenges always available
@@ -1352,18 +1415,17 @@ Challenge types:
 - weekly_race: weekly racing challenges
 - zdrift: ZDrift specific challenges
 
-Be helpful, friendly and concise. Use the live data above to answer questions accurately.`;
+Use your tools to fetch live data when answering questions about specific players, challenges or leaderboards.
+Be helpful, friendly and concise.`;
 
     if (!askConversations[userId]) {
       askConversations[userId] = [{ role: 'system', content: systemPrompt }];
     } else {
-      // Update system prompt with fresh data each time
       askConversations[userId][0] = { role: 'system', content: systemPrompt };
     }
 
     askConversations[userId].push({ role: 'user', content: question });
 
-    // Keep last 20 messages
     if (askConversations[userId].length > 21) {
       askConversations[userId] = [
         askConversations[userId][0],
@@ -1373,23 +1435,107 @@ Be helpful, friendly and concise. Use the live data above to answer questions ac
 
     try {
       const response = await openai.chat.completions.create({
-        model: 'openai/gpt-oss-120b',
+        model: 'openai/gpt-oss-20b',
         messages: askConversations[userId],
+        tools: tools,
         max_tokens: 500,
       });
 
-      const reply = response.choices[0].message.content;
-      askConversations[userId].push({ role: 'assistant', content: reply });
+      const message = response.choices[0].message;
 
-      if (reply.length > 2000) {
-        const chunks = reply.match(/[\s\S]{1,2000}/g);
-        await interaction.editReply(chunks[0]);
-        for (let i = 1; i < chunks.length; i++) {
-          await interaction.followUp(chunks[i]);
+      if (message.tool_calls) {
+        askConversations[userId].push(message);
+
+        for (const toolCall of message.tool_calls) {
+          const args = JSON.parse(toolCall.function.arguments);
+          let result = '';
+
+          if (toolCall.function.name === 'get_challenge_leaderboard') {
+            const entry = Object.entries(CHALLENGE_NAMES).find(([id, d]) =>
+              d.name.toLowerCase() === args.challenge_name.toLowerCase() ||
+              d.name.toLowerCase().includes(args.challenge_name.toLowerCase())
+            );
+            if (entry) {
+              const entries = cache[entry[0]] || [];
+              result = entries.slice(0, 20).map(e => `#${e.rank} ${e.username} — ${formatTime(e.record)}`).join('\n');
+            } else {
+              result = 'Challenge not found.';
+            }
+          }
+
+          if (toolCall.function.name === 'get_player_stats') {
+            const player = Object.values(playerStats).find(p =>
+              p.name.toLowerCase() === args.player_name.toLowerCase()
+            ) || Object.values(playerStats).find(p =>
+              p.name.toLowerCase().includes(args.player_name.toLowerCase())
+            );
+            if (player) {
+              const sorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
+              const rank = sorted.findIndex(p => p.name === player.name) + 1;
+              const avg = player.ranks.length ? (player.ranks.reduce((a, b) => a + b, 0) / player.ranks.length).toFixed(1) : 'N/A';
+              result = `${player.name} — Global #${rank}, ${player.totalPoints.toLocaleString()} pts, ${player.wrCount} WRs, ${player.top7Count} Top7s, ${player.top100Count} Top100s, Avg Rank: ${avg}`;
+            } else {
+              result = 'Player not found.';
+            }
+          }
+
+          if (toolCall.function.name === 'get_leaderboard') {
+            const page = args.page || 1;
+            const perPage = 30;
+            const slice = globalSorted.slice((page - 1) * perPage, page * perPage);
+            result = slice.map((p, i) => `#${(page - 1) * perPage + i + 1} ${p.name} — ${p.totalPoints.toLocaleString()} pts, ${p.wrCount} WRs`).join('\n');
+          }
+
+          if (toolCall.function.name === 'get_wr_holders') {
+            const lines = Object.entries(CHALLENGE_NAMES).map(([id, d]) => {
+              const entries = cache[id] || [];
+              const wr = entries.find(e => e.rank === 1);
+              return wr ? `${d.name}: ${wr.username} — ${formatTime(wr.record)}` : `${d.name}: No data`;
+            });
+            result = lines.join('\n');
+          }
+
+          askConversations[userId].push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: result,
+          });
         }
+
+        const finalResponse = await openai.chat.completions.create({
+          model: 'openai/gpt-oss-20b',
+          messages: askConversations[userId],
+          max_tokens: 500,
+        });
+
+        const reply = finalResponse.choices[0].message.content;
+        askConversations[userId].push({ role: 'assistant', content: reply });
+
+        if (reply.length > 2000) {
+          const chunks = reply.match(/[\s\S]{1,2000}/g);
+          await interaction.editReply(chunks[0]);
+          for (let i = 1; i < chunks.length; i++) {
+            await interaction.followUp(chunks[i]);
+          }
+        } else {
+          return interaction.editReply(reply);
+        }
+
       } else {
-        return interaction.editReply(reply);
+        const reply = message.content;
+        askConversations[userId].push({ role: 'assistant', content: reply });
+
+        if (reply.length > 2000) {
+          const chunks = reply.match(/[\s\S]{1,2000}/g);
+          await interaction.editReply(chunks[0]);
+          for (let i = 1; i < chunks.length; i++) {
+            await interaction.followUp(chunks[i]);
+          }
+        } else {
+          return interaction.editReply(reply);
+        }
       }
+
     } catch (e) {
       console.error('OpenAI error:', e.message);
       return interaction.editReply('Sorry, I ran into an error. Try again in a moment.');
