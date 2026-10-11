@@ -1373,7 +1373,7 @@ Be helpful, friendly and concise. Use the live data above to answer questions ac
 
     try {
       const response = await openai.chat.completions.create({
-        model: 'qwen/qwen3.6-27b',
+        model: 'openai/gpt-oss-120b',
         messages: askConversations[userId],
         max_tokens: 500,
       });
