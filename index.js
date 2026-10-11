@@ -6,7 +6,10 @@ const API_KEY = process.env.API_KEY;
 const fs = require('fs');
 const CACHE_FILE = './cache.json';
 const OpenAI = require('openai');
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({
+  apiKey: process.env.GROQ_API_KEY,
+  baseURL: 'https://api.groq.com/openai/v1',
+});
 const askConversations = {};
 
 // ============================================================
@@ -1370,7 +1373,7 @@ Be helpful, friendly and concise. Use the live data above to answer questions ac
 
     try {
       const response = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: 'llama-3.1-8b-instant',
         messages: askConversations[userId],
         max_tokens: 500,
       });
