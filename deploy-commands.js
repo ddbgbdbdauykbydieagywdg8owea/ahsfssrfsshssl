@@ -1,6 +1,6 @@
 const { REST, Routes, SlashCommandBuilder } = require('discord.js');
 
-const CLIENT_ID = '1558619064107143269';
+const CLIENT_ID = '1552102106696126565';
 const BOT_TOKEN = process.env.BOT_TOKEN;
 
 const commands = [
@@ -92,6 +92,12 @@ const commands = [
     .addStringOption(opt =>
       opt.setName('time').setDescription('WR time to search for (e.g. 12.345 or 1m 23.456s)').setRequired(true).setAutocomplete(true)),
   new SlashCommandBuilder()
+    .setName('ask')
+    .setDescription('Ask the AI anything about Orion Drift')
+    .addStringOption(opt =>
+      opt.setName('question').setDescription('Your question').setRequired(true)),
+  // Bouldering
+  new SlashCommandBuilder()
     .setName('boulderingleaderboard')
     .setDescription('Bouldering leaderboard ranked by points')
     .addIntegerOption(opt =>
@@ -111,11 +117,153 @@ const commands = [
     .setDescription('Shows which bouldering challenges a player has no top 100 entry on')
     .addStringOption(opt =>
       opt.setName('name').setDescription('Player name').setRequired(true).setAutocomplete(true)),
+  // Dribble
   new SlashCommandBuilder()
-    .setName('ask')
-    .setDescription('Ask the AI anything about Orion Drift')
+    .setName('dribbleleaderboard')
+    .setDescription('Dribble leaderboard ranked by points')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('dribbletop7leaderboard')
+    .setDescription('Dribble leaderboard ranked by top 7 finishes')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('dribblewrleaderboard')
+    .setDescription('Dribble leaderboard ranked by world records')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('dribbleimprove')
+    .setDescription('Shows which dribble challenges a player has no top 100 entry on')
     .addStringOption(opt =>
-      opt.setName('question').setDescription('Your question').setRequired(true)),
+      opt.setName('name').setDescription('Player name').setRequired(true).setAutocomplete(true)),
+  // Driftball
+  new SlashCommandBuilder()
+    .setName('driftballleaderboard')
+    .setDescription('Driftball leaderboard ranked by points')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('driftballtop7leaderboard')
+    .setDescription('Driftball leaderboard ranked by top 7 finishes')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('driftballwrleaderboard')
+    .setDescription('Driftball leaderboard ranked by world records')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('driftballimprove')
+    .setDescription('Shows which driftball challenges a player has no top 100 entry on')
+    .addStringOption(opt =>
+      opt.setName('name').setDescription('Player name').setRequired(true).setAutocomplete(true)),
+  // Club
+  new SlashCommandBuilder()
+    .setName('clubleaderboard')
+    .setDescription('Club leaderboard ranked by points')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('clubtop7leaderboard')
+    .setDescription('Club leaderboard ranked by top 7 finishes')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('clubwrleaderboard')
+    .setDescription('Club leaderboard ranked by world records')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('clubimprove')
+    .setDescription('Shows which club challenges a player has no top 100 entry on')
+    .addStringOption(opt =>
+      opt.setName('name').setDescription('Player name').setRequired(true).setAutocomplete(true)),
+  // Parkour
+  new SlashCommandBuilder()
+    .setName('parkourleaderboard')
+    .setDescription('Parkour leaderboard ranked by points')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('parkourtop7leaderboard')
+    .setDescription('Parkour leaderboard ranked by top 7 finishes')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('parkourwrleaderboard')
+    .setDescription('Parkour leaderboard ranked by world records')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('parkourimprove')
+    .setDescription('Shows which parkour challenges a player has no top 100 entry on')
+    .addStringOption(opt =>
+      opt.setName('name').setDescription('Player name').setRequired(true).setAutocomplete(true)),
+  // Intro
+  new SlashCommandBuilder()
+    .setName('introleaderboard')
+    .setDescription('Intro leaderboard ranked by points')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('introtop7leaderboard')
+    .setDescription('Intro leaderboard ranked by top 7 finishes')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('introwrleaderboard')
+    .setDescription('Intro leaderboard ranked by world records')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('introimprove')
+    .setDescription('Shows which intro challenges a player has no top 100 entry on')
+    .addStringOption(opt =>
+      opt.setName('name').setDescription('Player name').setRequired(true).setAutocomplete(true)),
+  // Ways To Climb
+  new SlashCommandBuilder()
+    .setName('waystoclimbleaderboard')
+    .setDescription('Ways To Climb leaderboard ranked by points')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('waystoclimbtop7leaderboard')
+    .setDescription('Ways To Climb leaderboard ranked by top 7 finishes')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('waystoclimbwrleaderboard')
+    .setDescription('Ways To Climb leaderboard ranked by world records')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('waystoclimbimprove')
+    .setDescription('Shows which Ways To Climb challenges a player has no top 100 entry on')
+    .addStringOption(opt =>
+      opt.setName('name').setDescription('Player name').setRequired(true).setAutocomplete(true)),
+  // Intro Ways To Climb
+  new SlashCommandBuilder()
+    .setName('introwaystoclimbleaderboard')
+    .setDescription('Intro Ways To Climb leaderboard ranked by points')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('introwaystoclimbtop7leaderboard')
+    .setDescription('Intro Ways To Climb leaderboard ranked by top 7 finishes')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('introwaystoclimbwrleaderboard')
+    .setDescription('Intro Ways To Climb leaderboard ranked by world records')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('introwaystoclimbimprove')
+    .setDescription('Shows which Intro Ways To Climb challenges a player has no top 100 entry on')
+    .addStringOption(opt =>
+      opt.setName('name').setDescription('Player name').setRequired(true).setAutocomplete(true)),
 ].map(c => c.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(BOT_TOKEN);
