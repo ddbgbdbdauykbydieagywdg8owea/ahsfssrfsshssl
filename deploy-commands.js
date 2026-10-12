@@ -107,6 +107,11 @@ const commands = [
     .addIntegerOption(opt =>
       opt.setName('page').setDescription('Page number').setMinValue(1)),
   new SlashCommandBuilder()
+    .setName('boulderingimprove')
+    .setDescription('Shows which bouldering challenges a player has no top 100 entry on')
+    .addStringOption(opt =>
+      opt.setName('name').setDescription('Player name').setRequired(true).setAutocomplete(true)),
+  new SlashCommandBuilder()
     .setName('ask')
     .setDescription('Ask the AI anything about Orion Drift')
     .addStringOption(opt =>
