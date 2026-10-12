@@ -92,6 +92,21 @@ const commands = [
     .addStringOption(opt =>
       opt.setName('time').setDescription('WR time to search for (e.g. 12.345 or 1m 23.456s)').setRequired(true).setAutocomplete(true)),
   new SlashCommandBuilder()
+    .setName('boulderingleaderboard')
+    .setDescription('Bouldering leaderboard ranked by points')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('boulderingtop7leaderboard')
+    .setDescription('Bouldering leaderboard ranked by top 7 finishes')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName('boulderingwrleaderboard')
+    .setDescription('Bouldering leaderboard ranked by world records')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
     .setName('ask')
     .setDescription('Ask the AI anything about Orion Drift')
     .addStringOption(opt =>
