@@ -1222,118 +1222,133 @@ if (commandName === 'findbywr') {
   }
 
 else if (commandName === '1v1') {
-    await interaction.deferReply();
+  await interaction.deferReply();
 
-    const name1 = interaction.options.getString('player1').toLowerCase();
-    const name2 = interaction.options.getString('player2').toLowerCase();
+  const name1 = interaction.options.getString('player1').toLowerCase();
+  const name2 = interaction.options.getString('player2').toLowerCase();
 
-    const p1 = Object.values(playerStats).find(p => p.name.toLowerCase() === name1)
-      || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name1));
-    const p2 = Object.values(playerStats).find(p => p.name.toLowerCase() === name2)
-      || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name2));
+  const p1 = Object.values(playerStats).find(p => p.name.toLowerCase() === name1)
+    || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name1));
+  const p2 = Object.values(playerStats).find(p => p.name.toLowerCase() === name2)
+    || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name2));
 
-    if (!p1) return interaction.editReply(`No player found matching **${interaction.options.getString('player1')}**.`);
-    if (!p2) return interaction.editReply(`No player found matching **${interaction.options.getString('player2')}**.`);
-    if (p1.name === p2.name) return interaction.editReply(`You can't 1v1 yourself.`);
+  if (!p1) return interaction.editReply(`No player found matching **${interaction.options.getString('player1')}**.`);
+  if (!p2) return interaction.editReply(`No player found matching **${interaction.options.getString('player2')}**.`);
+  if (p1.name === p2.name) return interaction.editReply(`You can't 1v1 yourself.`);
 
-    const globalSorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
-    const rank1 = globalSorted.findIndex(p => p.name === p1.name) + 1;
-    const rank2 = globalSorted.findIndex(p => p.name === p2.name) + 1;
+  const globalSorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
+  const rank1 = globalSorted.findIndex(p => p.name === p1.name) + 1;
+  const rank2 = globalSorted.findIndex(p => p.name === p2.name) + 1;
 
-    const avg1 = p1.ranks.length ? (p1.ranks.reduce((a, b) => a + b, 0) / p1.ranks.length) : 999;
-    const avg2 = p2.ranks.length ? (p2.ranks.reduce((a, b) => a + b, 0) / p2.ranks.length) : 999;
+  const avg1 = p1.ranks.length ? (p1.ranks.reduce((a, b) => a + b, 0) / p1.ranks.length) : 999;
+  const avg2 = p2.ranks.length ? (p2.ranks.reduce((a, b) => a + b, 0) / p2.ranks.length) : 999;
 
-    const p1Challenges = new Map(p1.challenges.map(c => [c.challengeId, c]));
-    const p2Challenges = new Map(p2.challenges.map(c => [c.challengeId, c]));
+  const p1Challenges = new Map(p1.challenges.map(c => [c.challengeId, c]));
+  const p2Challenges = new Map(p2.challenges.map(c => [c.challengeId, c]));
 
-    const sharedIds = [...p1Challenges.keys()].filter(id => p2Challenges.has(id));
-    let p1Wins = 0, p2Wins = 0, ties = 0;
-
-    for (const id of sharedIds) {
-      const r1 = p1Challenges.get(id).rank;
-      const r2 = p2Challenges.get(id).rank;
-      if (r1 < r2) p1Wins++;
-      else if (r2 < r1) p2Wins++;
-      else ties++;
-    }
-
-    // Perm comparison
-    const permIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => d.type === 'perm').map(([id]) => id);
-    let p1PermPoints = 0, p2PermPoints = 0;
-    for (const id of permIds) {
-      const c1 = p1Challenges.get(id);
-      const c2 = p2Challenges.get(id);
-      if (c1) p1PermPoints += getPoints(c1.rank);
-      if (c2) p2PermPoints += getPoints(c2.rank);
-    }
-
-    // Weekly comparison
-    const weeklyIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => d.type === 'kazz_easy' || d.type === 'kazz_hard').map(([id]) => id);
-    let p1WeeklyPoints = 0, p2WeeklyPoints = 0;
-    for (const id of weeklyIds) {
-      const c1 = p1Challenges.get(id);
-      const c2 = p2Challenges.get(id);
-      if (c1) p1WeeklyPoints += getPoints(c1.rank);
-      if (c2) p2WeeklyPoints += getPoints(c2.rank);
-    }
-
-    // Racing comparison
-    const raceIds = Object.entries(CHALLENGE_NAMES)
-      .filter(([id, d]) => {
-        if (d.type !== 'weekly_race') return false;
-        const match = d.name.match(/WeeklyRace(\d+)/i);
-        return match && parseInt(match[1]) >= 22;
-      })
-      .map(([id]) => id);
-    let p1RacePoints = 0, p2RacePoints = 0;
-    for (const id of raceIds) {
-      const c1 = p1Challenges.get(id);
-      const c2 = p2Challenges.get(id);
-      if (c1) p1RacePoints += getPoints(c1.rank);
-      if (c2) p2RacePoints += getPoints(c2.rank);
-    }
-
-    let p1Score = 0, p2Score = 0;
-    if (rank1 < rank2) p1Score++; else if (rank2 < rank1) p2Score++;
-    if (p1.totalPoints > p2.totalPoints) p1Score++; else if (p2.totalPoints > p1.totalPoints) p2Score++;
-    if (p1.wrCount > p2.wrCount) p1Score++; else if (p2.wrCount > p1.wrCount) p2Score++;
-    if (p1.top7Count > p2.top7Count) p1Score++; else if (p2.top7Count > p1.top7Count) p2Score++;
-    if (p1.top100Count > p2.top100Count) p1Score++; else if (p2.top100Count > p1.top100Count) p2Score++;
-    if (avg1 < avg2) p1Score++; else if (avg2 < avg1) p2Score++;
-    if (p1Wins > p2Wins) p1Score++; else if (p2Wins > p1Wins) p2Score++;
-    if (p1PermPoints > p2PermPoints) p1Score++; else if (p2PermPoints > p1PermPoints) p2Score++;
-    if (p1WeeklyPoints > p2WeeklyPoints) p1Score++; else if (p2WeeklyPoints > p1WeeklyPoints) p2Score++;
-    if (p1RacePoints > p2RacePoints) p1Score++; else if (p2RacePoints > p1RacePoints) p2Score++;
-
-    const winner = p1Score > p2Score ? p1.name : p2Score > p1Score ? p2.name : null;
-    const verdict = winner
-      ? `**${winner}** wins the 1v1 (${Math.max(p1Score, p2Score)}-${Math.min(p1Score, p2Score)})`
-      : `Dead even — this 1v1 is a tie`;
-
-const description = [
-      `**Global Rank:** ${p1.name} #${rank1} vs ${p2.name} #${rank2}`,
-      `**Total Points:** ${p1.totalPoints.toLocaleString()} vs ${p2.totalPoints.toLocaleString()}`,
-      `**World Records:** ${p1.wrCount} vs ${p2.wrCount}`,
-      `**Top 7s:** ${p1.top7Count} vs ${p2.top7Count}`,
-      `**Top 100s:** ${p1.top100Count} vs ${p2.top100Count}`,
-      `**Avg Rank:** ${avg1.toFixed(1)} vs ${avg2.toFixed(1)}`,
-      `**Head to Head (${sharedIds.length} shared challenges):** ${p1.name} ${p1Wins} — ${p2Wins} ${p2.name}${ties > 0 ? ` (${ties} tied)` : ''}`,
-      ``,
-      `**Perm Points:** ${p1PermPoints.toLocaleString()} vs ${p2PermPoints.toLocaleString()} — ${p1PermPoints > p2PermPoints ? p1.name : p2PermPoints > p1PermPoints ? p2.name : 'Tied'}`,
-      `**Weekly Points:** ${p1WeeklyPoints.toLocaleString()} vs ${p2WeeklyPoints.toLocaleString()} — ${p1WeeklyPoints > p2WeeklyPoints ? p1.name : p2WeeklyPoints > p1WeeklyPoints ? p2.name : 'Tied'}`,
-      `**Racing Points:** ${p1RacePoints.toLocaleString()} vs ${p2RacePoints.toLocaleString()} — ${p1RacePoints > p2RacePoints ? p1.name : p2RacePoints > p1RacePoints ? p2.name : 'Tied'}`,
-      ``,
-      `**Verdict:** ${verdict}`,
-    ].join('\n');
-
-    const embed = new EmbedBuilder()
-      .setTitle(`1v1: ${p1.name} vs ${p2.name}`)
-      .setColor(winner === p1.name ? 0x5865f2 : winner === p2.name ? 0xe74c3c : 0x95a5a6)
-      .setDescription(description)
-      .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
-
-    return interaction.editReply({ embeds: [embed] });
+  const sharedIds = [...p1Challenges.keys()].filter(id => p2Challenges.has(id));
+  let p1Wins = 0, p2Wins = 0, ties = 0;
+  for (const id of sharedIds) {
+    const r1 = p1Challenges.get(id).rank;
+    const r2 = p2Challenges.get(id).rank;
+    if (r1 < r2) p1Wins++;
+    else if (r2 < r1) p2Wins++;
+    else ties++;
   }
+
+  const getCategoryPoints = (ids) => {
+    let pts1 = 0, pts2 = 0;
+    for (const id of ids) {
+      const c1 = p1Challenges.get(id);
+      const c2 = p2Challenges.get(id);
+      if (c1) pts1 += getPoints(c1.rank);
+      if (c2) pts2 += getPoints(c2.rank);
+    }
+    return [pts1, pts2];
+  };
+
+  const permIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => d.type === 'perm').map(([id]) => id);
+  const weeklyIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => d.type === 'kazz_easy' || d.type === 'kazz_hard').map(([id]) => id);
+  const raceIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => {
+    if (d.type !== 'weekly_race') return false;
+    const match = d.name.match(/WeeklyRace(\d+)/i);
+    return match && parseInt(match[1]) >= 22;
+  }).map(([id]) => id);
+
+  const [p1PermPoints, p2PermPoints] = getCategoryPoints(permIds);
+  const [p1WeeklyPoints, p2WeeklyPoints] = getCategoryPoints(weeklyIds);
+  const [p1RacePoints, p2RacePoints] = getCategoryPoints(raceIds);
+  const [p1ZdriftPoints, p2ZdriftPoints] = getCategoryPoints(ZDRIFT_IDS);
+  const [p1BoulderingPoints, p2BoulderingPoints] = getCategoryPoints(BOULDERING_IDS);
+  const [p1DribblePoints, p2DribblePoints] = getCategoryPoints(DRIBBLE_IDS);
+  const [p1DriftballPoints, p2DriftballPoints] = getCategoryPoints(DRIFTBALL_IDS);
+  const [p1ClubPoints, p2ClubPoints] = getCategoryPoints(CLUB_IDS);
+  const [p1ParkourPoints, p2ParkourPoints] = getCategoryPoints(PARKOUR_IDS);
+  const [p1IntroPoints, p2IntroPoints] = getCategoryPoints(INTRO_IDS);
+  const [p1WaysPoints, p2WaysPoints] = getCategoryPoints(WAYS_TO_CLIMB_IDS);
+  const [p1IntroWaysPoints, p2IntroWaysPoints] = getCategoryPoints(INTRO_WAYS_TO_CLIMB_IDS);
+
+  const cmp = (a, b, n1, n2) => a > b ? n1 : b > a ? n2 : 'Tied';
+
+  let p1Score = 0, p2Score = 0;
+  if (rank1 < rank2) p1Score++; else if (rank2 < rank1) p2Score++;
+  if (p1.totalPoints > p2.totalPoints) p1Score++; else if (p2.totalPoints > p1.totalPoints) p2Score++;
+  if (p1.wrCount > p2.wrCount) p1Score++; else if (p2.wrCount > p1.wrCount) p2Score++;
+  if (p1.top7Count > p2.top7Count) p1Score++; else if (p2.top7Count > p1.top7Count) p2Score++;
+  if (p1.top100Count > p2.top100Count) p1Score++; else if (p2.top100Count > p1.top100Count) p2Score++;
+  if (avg1 < avg2) p1Score++; else if (avg2 < avg1) p2Score++;
+  if (p1Wins > p2Wins) p1Score++; else if (p2Wins > p1Wins) p2Score++;
+  if (p1PermPoints > p2PermPoints) p1Score++; else if (p2PermPoints > p1PermPoints) p2Score++;
+  if (p1WeeklyPoints > p2WeeklyPoints) p1Score++; else if (p2WeeklyPoints > p1WeeklyPoints) p2Score++;
+  if (p1RacePoints > p2RacePoints) p1Score++; else if (p2RacePoints > p1RacePoints) p2Score++;
+  if (p1ZdriftPoints > p2ZdriftPoints) p1Score++; else if (p2ZdriftPoints > p1ZdriftPoints) p2Score++;
+  if (p1BoulderingPoints > p2BoulderingPoints) p1Score++; else if (p2BoulderingPoints > p1BoulderingPoints) p2Score++;
+  if (p1DribblePoints > p2DribblePoints) p1Score++; else if (p2DribblePoints > p1DribblePoints) p2Score++;
+  if (p1DriftballPoints > p2DriftballPoints) p1Score++; else if (p2DriftballPoints > p1DriftballPoints) p2Score++;
+  if (p1ClubPoints > p2ClubPoints) p1Score++; else if (p2ClubPoints > p1ClubPoints) p2Score++;
+  if (p1ParkourPoints > p2ParkourPoints) p1Score++; else if (p2ParkourPoints > p1ParkourPoints) p2Score++;
+  if (p1IntroPoints > p2IntroPoints) p1Score++; else if (p2IntroPoints > p1IntroPoints) p2Score++;
+  if (p1WaysPoints > p2WaysPoints) p1Score++; else if (p2WaysPoints > p1WaysPoints) p2Score++;
+  if (p1IntroWaysPoints > p2IntroWaysPoints) p1Score++; else if (p2IntroWaysPoints > p1IntroWaysPoints) p2Score++;
+
+  const winner = p1Score > p2Score ? p1.name : p2Score > p1Score ? p2.name : null;
+  const verdict = winner
+    ? `**${winner}** wins the 1v1 (${Math.max(p1Score, p2Score)}-${Math.min(p1Score, p2Score)})`
+    : `Dead even — this 1v1 is a tie`;
+
+  const description = [
+    `**Global Rank:** ${p1.name} #${rank1} vs ${p2.name} #${rank2}`,
+    `**Total Points:** ${p1.totalPoints.toLocaleString()} vs ${p2.totalPoints.toLocaleString()}`,
+    `**World Records:** ${p1.wrCount} vs ${p2.wrCount}`,
+    `**Top 7s:** ${p1.top7Count} vs ${p2.top7Count}`,
+    `**Top 100s:** ${p1.top100Count} vs ${p2.top100Count}`,
+    `**Avg Rank:** ${avg1.toFixed(1)} vs ${avg2.toFixed(1)}`,
+    `**Head to Head (${sharedIds.length} shared):** ${p1.name} ${p1Wins} — ${p2Wins} ${p2.name}${ties > 0 ? ` (${ties} tied)` : ''}`,
+    ``,
+    `**Perm:** ${p1PermPoints.toLocaleString()} vs ${p2PermPoints.toLocaleString()} — ${cmp(p1PermPoints, p2PermPoints, p1.name, p2.name)}`,
+    `**Weekly:** ${p1WeeklyPoints.toLocaleString()} vs ${p2WeeklyPoints.toLocaleString()} — ${cmp(p1WeeklyPoints, p2WeeklyPoints, p1.name, p2.name)}`,
+    `**Racing:** ${p1RacePoints.toLocaleString()} vs ${p2RacePoints.toLocaleString()} — ${cmp(p1RacePoints, p2RacePoints, p1.name, p2.name)}`,
+    `**ZDrift:** ${p1ZdriftPoints.toLocaleString()} vs ${p2ZdriftPoints.toLocaleString()} — ${cmp(p1ZdriftPoints, p2ZdriftPoints, p1.name, p2.name)}`,
+    `**Bouldering:** ${p1BoulderingPoints.toLocaleString()} vs ${p2BoulderingPoints.toLocaleString()} — ${cmp(p1BoulderingPoints, p2BoulderingPoints, p1.name, p2.name)}`,
+    `**Dribble:** ${p1DribblePoints.toLocaleString()} vs ${p2DribblePoints.toLocaleString()} — ${cmp(p1DribblePoints, p2DribblePoints, p1.name, p2.name)}`,
+    `**Driftball:** ${p1DriftballPoints.toLocaleString()} vs ${p2DriftballPoints.toLocaleString()} — ${cmp(p1DriftballPoints, p2DriftballPoints, p1.name, p2.name)}`,
+    `**Club:** ${p1ClubPoints.toLocaleString()} vs ${p2ClubPoints.toLocaleString()} — ${cmp(p1ClubPoints, p2ClubPoints, p1.name, p2.name)}`,
+    `**Parkour:** ${p1ParkourPoints.toLocaleString()} vs ${p2ParkourPoints.toLocaleString()} — ${cmp(p1ParkourPoints, p2ParkourPoints, p1.name, p2.name)}`,
+    `**Intro:** ${p1IntroPoints.toLocaleString()} vs ${p2IntroPoints.toLocaleString()} — ${cmp(p1IntroPoints, p2IntroPoints, p1.name, p2.name)}`,
+    `**Ways To Climb:** ${p1WaysPoints.toLocaleString()} vs ${p2WaysPoints.toLocaleString()} — ${cmp(p1WaysPoints, p2WaysPoints, p1.name, p2.name)}`,
+    `**Intro Ways To Climb:** ${p1IntroWaysPoints.toLocaleString()} vs ${p2IntroWaysPoints.toLocaleString()} — ${cmp(p1IntroWaysPoints, p2IntroWaysPoints, p1.name, p2.name)}`,
+    ``,
+    `**Verdict:** ${verdict}`,
+  ].join('\n');
+
+  const embed = new EmbedBuilder()
+    .setTitle(`1v1: ${p1.name} vs ${p2.name}`)
+    .setColor(winner === p1.name ? 0x5865f2 : winner === p2.name ? 0xe74c3c : 0x95a5a6)
+    .setDescription(description)
+    .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+
+  return interaction.editReply({ embeds: [embed] });
+}
 
   else if (commandName === 'zdriftleaderboard') {
     await interaction.deferReply();
@@ -1388,15 +1403,12 @@ const description = [
   const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name.toLowerCase());
   if (!player) return interaction.editReply(`Player "${name}" not found.`);
 
-  const sorted = Object.values(playerStats).sort((a, b) => b.points - a.points);
-  const globalRank = sorted.findIndex(p => p.name.toLowerCase() === name.toLowerCase()) + 1;
+  const allPlayers = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
+  const globalRank = allPlayers.findIndex(p => p.name.toLowerCase() === name.toLowerCase()) + 1;
 
-  const avgRank = (() => {
-    const entries = Object.values(cache).flat().filter(e => e.username.toLowerCase() === name.toLowerCase());
-    if (!entries.length) return 'N/A';
-    const avg = entries.reduce((sum, e) => sum + e.rank, 0) / entries.length;
-    return avg.toFixed(1);
-  })();
+  const avgRank = player.ranks.length
+    ? (player.ranks.reduce((sum, r) => sum + r, 0) / player.ranks.length).toFixed(1)
+    : 'N/A';
 
   const getCategoryRank = (ids) => {
     const players = {};
