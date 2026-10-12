@@ -1385,131 +1385,79 @@ const description = [
   await interaction.deferReply();
   const name = interaction.options.getString('name');
 
-  const getRank = (ids) => {
+  const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name.toLowerCase());
+  if (!player) return interaction.editReply(`Player "${name}" not found.`);
+
+  const sorted = Object.values(playerStats).sort((a, b) => b.points - a.points);
+  const globalRank = sorted.findIndex(p => p.name.toLowerCase() === name.toLowerCase()) + 1;
+
+  const avgRank = (() => {
+    const entries = Object.values(cache).flat().filter(e => e.username.toLowerCase() === name.toLowerCase());
+    if (!entries.length) return 'N/A';
+    const avg = entries.reduce((sum, e) => sum + e.rank, 0) / entries.length;
+    return avg.toFixed(1);
+  })();
+
+  const getCategoryRank = (ids) => {
     const players = {};
     for (const id of ids) {
       const entries = cache[id] || [];
       for (const entry of entries) {
-        if (!players[entry.username]) players[entry.username] = 0;
-        players[entry.username] += getPoints(entry.rank);
+        if (entry.rank > 100) continue;
+        const uid = entry.user_id || entry.username;
+        if (!players[uid]) players[uid] = { name: entry.username, points: 0 };
+        players[uid].points += getPoints(entry.rank);
       }
     }
-    const sorted = Object.entries(players).sort((a, b) => b[1] - a[1]);
-    const idx = sorted.findIndex(([n]) => n.toLowerCase() === name.toLowerCase());
-    return idx === -1 ? 'N/A' : `#${idx + 1}`;
+    const s = Object.values(players).sort((a, b) => b.points - a.points);
+    const idx = s.findIndex(p => p.name.toLowerCase() === name.toLowerCase());
+    return idx === -1 ? 0 : idx + 1;
   };
 
-  const globalRank = (() => {
-    const sorted = Object.entries(playerStats).sort((a, b) => b[1].points - a[1].points);
-    const idx = sorted.findIndex(([n]) => n.toLowerCase() === name.toLowerCase());
-    return idx === -1 ? 'N/A' : `#${idx + 1}`;
-  })();
-
-  const permRank = getRank(CHALLENGE_IDS.filter(id => getChallengeType(id) === 'perm'));
-  const weeklyRank = getRank(CHALLENGE_IDS.filter(id => ['kazz_easy', 'kazz_hard'].includes(getChallengeType(id))));
-  const racingRank = getRank(CHALLENGE_IDS.filter(id => {
-    const n = getChallengeName(id);
-    const match = n && n.match(/WeeklyRace(\d+)/i);
+  const permIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => d.type === 'perm').map(([id]) => id);
+  const weeklyIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => d.type === 'kazz_easy' || d.type === 'kazz_hard').map(([id]) => id);
+  const raceIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => {
+    if (d.type !== 'weekly_race') return false;
+    const match = d.name.match(/WeeklyRace(\d+)/i);
     return match && parseInt(match[1]) >= 22;
-  }));
-  const zdriftRank = getRank(ZDRIFT_IDS);
-  const boulderingRank = getRank(BOULDERING_IDS);
-  const dribbleRank = getRank(DRIBBLE_IDS);
-  const driftballRank = getRank(DRIFTBALL_IDS);
-  const clubRank = getRank(CLUB_IDS);
-  const parkourRank = getRank(PARKOUR_IDS);
-  const introRank = getRank(INTRO_IDS);
-  const waysToClimbRank = getRank(WAYS_TO_CLIMB_IDS);
-  const introWaysToClimbRank = getRank(INTRO_WAYS_TO_CLIMB_IDS);
+  }).map(([id]) => id);
 
-  const lines = [
-    `**${name} - Summary**`,
-    ``,
-    `Global: ${globalRank}`,
-    `Perm: ${permRank}`,
-    `Weekly: ${weeklyRank}`,
-    `Racing: ${racingRank}`,
-    `ZDrift: ${zdriftRank}`,
-    `Bouldering: ${boulderingRank}`,
-    `Dribble: ${dribbleRank}`,
-    `Driftball: ${driftballRank}`,
-    `Club: ${clubRank}`,
-    `Parkour: ${parkourRank}`,
-    `Intro: ${introRank}`,
-    `Ways To Climb: ${waysToClimbRank}`,
-    `Intro Ways To Climb: ${introWaysToClimbRank}`,
-  ];
+  const permRank = getCategoryRank(permIds);
+  const weeklyRank = getCategoryRank(weeklyIds);
+  const raceRank = getCategoryRank(raceIds);
+  const zdriftRank = getCategoryRank(ZDRIFT_IDS);
+  const boulderingRank = getCategoryRank(BOULDERING_IDS);
+  const dribbleRank = getCategoryRank(DRIBBLE_IDS);
+  const driftballRank = getCategoryRank(DRIFTBALL_IDS);
+  const clubRank = getCategoryRank(CLUB_IDS);
+  const parkourRank = getCategoryRank(PARKOUR_IDS);
+  const introRank = getCategoryRank(INTRO_IDS);
+  const waysToClimbRank = getCategoryRank(WAYS_TO_CLIMB_IDS);
+  const introWaysToClimbRank = getCategoryRank(INTRO_WAYS_TO_CLIMB_IDS);
 
-  interaction.editReply(lines.join('\n'));
+  const embed = new EmbedBuilder()
+    .setTitle(player.name.slice(0, 256))
+    .setColor(0x5865f2)
+    .setDescription([
+      `**Global Rank:** #${globalRank} | ${player.totalPoints.toLocaleString()} pts | Avg Rank: ${avgRank}`,
+      `**Perm Rank:** ${permRank > 0 ? `#${permRank}` : 'Unranked'}`,
+      `**Weekly Rank:** ${weeklyRank > 0 ? `#${weeklyRank}` : 'Unranked'}`,
+      `**Racing Rank:** ${raceRank > 0 ? `#${raceRank}` : 'Unranked'}`,
+      `**ZDrift Rank:** ${zdriftRank > 0 ? `#${zdriftRank}` : 'Unranked'}`,
+      `**Bouldering Rank:** ${boulderingRank > 0 ? `#${boulderingRank}` : 'Unranked'}`,
+      `**Dribble Rank:** ${dribbleRank > 0 ? `#${dribbleRank}` : 'Unranked'}`,
+      `**Driftball Rank:** ${driftballRank > 0 ? `#${driftballRank}` : 'Unranked'}`,
+      `**Club Rank:** ${clubRank > 0 ? `#${clubRank}` : 'Unranked'}`,
+      `**Parkour Rank:** ${parkourRank > 0 ? `#${parkourRank}` : 'Unranked'}`,
+      `**Intro Rank:** ${introRank > 0 ? `#${introRank}` : 'Unranked'}`,
+      `**Ways To Climb Rank:** ${waysToClimbRank > 0 ? `#${waysToClimbRank}` : 'Unranked'}`,
+      `**Intro Ways To Climb Rank:** ${introWaysToClimbRank > 0 ? `#${introWaysToClimbRank}` : 'Unranked'}`,
+      `**WRs:** ${player.wrCount} | **Top 7s:** ${player.top7Count} | **Top 100s:** ${player.top100Count}`,
+    ].join('\n'))
+    .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+
+  return interaction.editReply({ embeds: [embed] });
 }
-    const permSorted = Object.values(permStats).sort((a, b) => b.points - a.points);
-    const permRank = permSorted.findIndex(p => p.name === player.name) + 1;
-
-    const weeklyIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => d.type === 'kazz_easy' || d.type === 'kazz_hard').map(([id]) => id);
-    const weeklyStats = {};
-    for (const id of weeklyIds) {
-      const entries = cache[id];
-      if (!entries) continue;
-      entries.forEach(e => {
-        if (e.rank > 100) return;
-        const uid = e.user_id || e.username;
-        if (!weeklyStats[uid]) weeklyStats[uid] = { name: e.username, points: 0 };
-        weeklyStats[uid].points += getPoints(e.rank);
-      });
-    }
-    const weeklySorted = Object.values(weeklyStats).sort((a, b) => b.points - a.points);
-    const weeklyRank = weeklySorted.findIndex(p => p.name === player.name) + 1;
-
-    const raceIds = Object.entries(CHALLENGE_NAMES)
-      .filter(([id, d]) => {
-        if (d.type !== 'weekly_race') return false;
-        const match = d.name.match(/WeeklyRace(\d+)/i);
-        return match && parseInt(match[1]) >= 22;
-      })
-      .map(([id]) => id);
-    const raceStats = {};
-    for (const id of raceIds) {
-      const entries = cache[id];
-      if (!entries) continue;
-      entries.forEach(e => {
-        if (e.rank > 100) return;
-        const uid = e.user_id || e.username;
-        if (!raceStats[uid]) raceStats[uid] = { name: e.username, points: 0 };
-        raceStats[uid].points += getPoints(e.rank);
-      });
-    }
-    const raceSorted = Object.values(raceStats).sort((a, b) => b.points - a.points);
-    const raceRank = raceSorted.findIndex(p => p.name === player.name) + 1;
-
-    const zdriftStats = {};
-    for (const id of ZDRIFT_IDS) {
-      const entries = cache[id];
-      if (!entries) continue;
-      entries.forEach(e => {
-        if (e.rank > 100) return;
-        const uid = e.user_id || e.username;
-        if (!zdriftStats[uid]) zdriftStats[uid] = { name: e.username, points: 0 };
-        zdriftStats[uid].points += getPoints(e.rank);
-      });
-    }
-    const zdriftSorted = Object.values(zdriftStats).sort((a, b) => b.points - a.points);
-    const zdriftRank = zdriftSorted.findIndex(p => p.name === player.name) + 1;
-
-    const embed = new EmbedBuilder()
-      .setTitle(player.name.slice(0, 256))
-      .setColor(0x5865f2)
-      .setDescription([
-        `**Global Rank:** #${globalRank} | ${player.totalPoints.toLocaleString()} pts | Avg Rank: ${avgRank}`,
-        `**Perm Rank:** ${permRank > 0 ? `#${permRank}` : 'Unranked'}`,
-        `**Weekly Rank:** ${weeklyRank > 0 ? `#${weeklyRank}` : 'Unranked'}`,
-        `**Racing Rank:** ${raceRank > 0 ? `#${raceRank}` : 'Unranked'}`,
-        `**ZDrift Rank:** ${zdriftRank > 0 ? `#${zdriftRank}` : 'Unranked'}`,
-        `**WRs:** ${player.wrCount} | **Top 7s:** ${player.top7Count} | **Top 100s:** ${player.top100Count}`,
-      ].join('\n'))
-      .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
-
-    return interaction.editReply({ embeds: [embed] });
-  }
 
   else if (commandName === 'permleaderboard') {
     await interaction.deferReply();
