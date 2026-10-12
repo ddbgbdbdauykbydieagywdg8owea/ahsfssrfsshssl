@@ -544,7 +544,48 @@ function getChallengeName(id) {
 function getChallengeType(id) {
   return CHALLENGE_NAMES[id]?.type || null;
 }
+function buildCategoryLeaderboard(ids, sortBy, page, perPage = 10) {
+  const players = {};
+  for (const id of ids) {
+    const entries = cache[id] || [];
+    for (const entry of entries) {
+      if (!players[entry.username]) {
+        players[entry.username] = { points: 0, top7s: 0, wrs: 0 };
+      }
+      const pts = getPoints(entry.rank);
+      players[entry.username].points += pts;
+      if (entry.rank === 1) players[entry.username].wrs += 1;
+      if (entry.rank <= 7) players[entry.username].top7s += 1;
+    }
+  }
 
+  let sorted;
+  if (sortBy === 'points') {
+    sorted = Object.entries(players).sort((a, b) => b[1].points - a[1].points);
+  } else if (sortBy === 'top7s') {
+    sorted = Object.entries(players).sort((a, b) => b[1].top7s - a[1].top7s);
+  } else if (sortBy === 'wrs') {
+    sorted = Object.entries(players).sort((a, b) => b[1].wrs - a[1].wrs);
+  }
+
+  const totalPages = Math.ceil(sorted.length / perPage);
+  const start = (page - 1) * perPage;
+  const slice = sorted.slice(start, start + perPage);
+
+  return { slice, totalPages, start };
+}
+
+function buildCategoryImprove(ids, playerName) {
+  const missing = [];
+  for (const id of ids) {
+    const entries = cache[id] || [];
+    const found = entries.find(e => e.username.toLowerCase() === playerName.toLowerCase());
+    if (!found) {
+      missing.push(getChallengeName(id) || id);
+    }
+  }
+  return missing;
+}
 // ============================================================
 // SET YOUR ALERT CHANNEL IDs HERE
 // ============================================================
@@ -824,7 +865,18 @@ async function buildCache() {
   cache = {};
   playerStats = {};
 
-  const ALL_IDS = [...new Set([...CHALLENGE_IDS, ...ZDRIFT_IDS])];
+ const ALL_IDS = [...new Set([
+  ...CHALLENGE_IDS,
+  ...ZDRIFT_IDS,
+  ...BOULDERING_IDS,
+  ...DRIBBLE_IDS,
+  ...DRIFTBALL_IDS,
+  ...CLUB_IDS,
+  ...PARKOUR_IDS,
+  ...INTRO_IDS,
+  ...WAYS_TO_CLIMB_IDS,
+  ...INTRO_WAYS_TO_CLIMB_IDS,
+])];
   for (let i = 0; i < ALL_IDS.length; i++) {
     const id = ALL_IDS[i];
     const data = await fetchChallenge(id);
@@ -1329,31 +1381,67 @@ const description = [
     interaction.editReply({ embeds: [embed] });
   }
 
-  else if (commandName === 'summary') {
-    await interaction.deferReply();
-    const name = interaction.options.getString('name').toLowerCase();
+  if (commandName === 'summary') {
+  await interaction.deferReply();
+  const name = interaction.options.getString('name');
 
-    const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name)
-      || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name));
-
-    if (!player) return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
-
-    const globalSorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
-    const globalRank = globalSorted.findIndex(p => p.name === player.name) + 1;
-    const avgRank = player.ranks.length ? (player.ranks.reduce((a, b) => a + b, 0) / player.ranks.length).toFixed(1) : 'N/A';
-
-    const permIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => d.type === 'perm').map(([id]) => id);
-    const permStats = {};
-    for (const id of permIds) {
-      const entries = cache[id];
-      if (!entries) continue;
-      entries.forEach(e => {
-        if (e.rank > 100) return;
-        const uid = e.user_id || e.username;
-        if (!permStats[uid]) permStats[uid] = { name: e.username, points: 0 };
-        permStats[uid].points += getPoints(e.rank);
-      });
+  const getRank = (ids) => {
+    const players = {};
+    for (const id of ids) {
+      const entries = cache[id] || [];
+      for (const entry of entries) {
+        if (!players[entry.username]) players[entry.username] = 0;
+        players[entry.username] += getPoints(entry.rank);
+      }
     }
+    const sorted = Object.entries(players).sort((a, b) => b[1] - a[1]);
+    const idx = sorted.findIndex(([n]) => n.toLowerCase() === name.toLowerCase());
+    return idx === -1 ? 'N/A' : `#${idx + 1}`;
+  };
+
+  const globalRank = (() => {
+    const sorted = Object.entries(playerStats).sort((a, b) => b[1].points - a[1].points);
+    const idx = sorted.findIndex(([n]) => n.toLowerCase() === name.toLowerCase());
+    return idx === -1 ? 'N/A' : `#${idx + 1}`;
+  })();
+
+  const permRank = getRank(CHALLENGE_IDS.filter(id => getChallengeType(id) === 'perm'));
+  const weeklyRank = getRank(CHALLENGE_IDS.filter(id => ['kazz_easy', 'kazz_hard'].includes(getChallengeType(id))));
+  const racingRank = getRank(CHALLENGE_IDS.filter(id => {
+    const n = getChallengeName(id);
+    const match = n && n.match(/WeeklyRace(\d+)/i);
+    return match && parseInt(match[1]) >= 22;
+  }));
+  const zdriftRank = getRank(ZDRIFT_IDS);
+  const boulderingRank = getRank(BOULDERING_IDS);
+  const dribbleRank = getRank(DRIBBLE_IDS);
+  const driftballRank = getRank(DRIFTBALL_IDS);
+  const clubRank = getRank(CLUB_IDS);
+  const parkourRank = getRank(PARKOUR_IDS);
+  const introRank = getRank(INTRO_IDS);
+  const waysToClimbRank = getRank(WAYS_TO_CLIMB_IDS);
+  const introWaysToClimbRank = getRank(INTRO_WAYS_TO_CLIMB_IDS);
+
+  const lines = [
+    `**${name} - Summary**`,
+    ``,
+    `Global: ${globalRank}`,
+    `Perm: ${permRank}`,
+    `Weekly: ${weeklyRank}`,
+    `Racing: ${racingRank}`,
+    `ZDrift: ${zdriftRank}`,
+    `Bouldering: ${boulderingRank}`,
+    `Dribble: ${dribbleRank}`,
+    `Driftball: ${driftballRank}`,
+    `Club: ${clubRank}`,
+    `Parkour: ${parkourRank}`,
+    `Intro: ${introRank}`,
+    `Ways To Climb: ${waysToClimbRank}`,
+    `Intro Ways To Climb: ${introWaysToClimbRank}`,
+  ];
+
+  interaction.editReply(lines.join('\n'));
+}
     const permSorted = Object.values(permStats).sort((a, b) => b.points - a.points);
     const permRank = permSorted.findIndex(p => p.name === player.name) + 1;
 
@@ -1690,7 +1778,328 @@ else if (commandName === 'boulderingimprove') {
 
     return interaction.editReply({ embeds: [embed] });
   }
-  else if (commandName === 'ask') {
+// Dribble
+if (commandName === 'dribbleleaderboard') {
+  await interaction.deferReply();
+  const page = interaction.options.getInteger('page') || 1;
+  const { slice, totalPages, start } = buildCategoryLeaderboard(DRIBBLE_IDS, 'points', page);
+  if (!slice.length) return interaction.editReply('No data available.');
+  const lines = slice.map(([name, s], i) => `${start + i + 1}. ${name} - ${s.points} pts`);
+  interaction.editReply(`**Dribble Leaderboard (Page ${page}/${totalPages})**\n\`\`\`\n${lines.join('\n')}\n\`\`\``);
+}
+
+if (commandName === 'dribbletop7leaderboard') {
+  await interaction.deferReply();
+  const page = interaction.options.getInteger('page') || 1;
+  const { slice, totalPages, start } = buildCategoryLeaderboard(DRIBBLE_IDS, 'top7s', page);
+  if (!slice.length) return interaction.editReply('No data available.');
+  const lines = slice.map(([name, s], i) => `${start + i + 1}. ${name} - ${s.top7s} top 7s`);
+  interaction.editReply(`**Dribble Top 7 Leaderboard (Page ${page}/${totalPages})**\n\`\`\`\n${lines.join('\n')}\n\`\`\``);
+}
+
+if (commandName === 'dribblewrleaderboard') {
+  await interaction.deferReply();
+  const page = interaction.options.getInteger('page') || 1;
+  const { slice, totalPages, start } = buildCategoryLeaderboard(DRIBBLE_IDS, 'wrs', page);
+  if (!slice.length) return interaction.editReply('No data available.');
+  const lines = slice.map(([name, s], i) => `${start + i + 1}. ${name} - ${s.wrs} WRs`);
+  interaction.editReply(`**Dribble WR Leaderboard (Page ${page}/${totalPages})**\n\`\`\`\n${lines.join('\n')}\n\`\`\``);
+}
+
+if (commandName === 'dribbleimprove') {
+  await interaction.deferReply();
+  const name = interaction.options.getString('name');
+  const missing = buildCategoryImprove(DRIBBLE_IDS, name);
+  if (!missing.length) return interaction.editReply(`${name} has a top 100 entry on all dribble challenges.`);
+  const chunks = [];
+  let chunk = '';
+  for (const m of missing) {
+    if ((chunk + m + '\n').length > 1900) { chunks.push(chunk); chunk = ''; }
+    chunk += m + '\n';
+  }
+  if (chunk) chunks.push(chunk);
+  await interaction.editReply(`**${name} - Missing Dribble Challenges (${missing.length})**\n\`\`\`\n${chunks[0]}\n\`\`\``);
+  for (let i = 1; i < chunks.length; i++) {
+    await interaction.followUp(`\`\`\`\n${chunks[i]}\n\`\`\``);
+  }
+}
+
+// Driftball
+if (commandName === 'driftballleaderboard') {
+  await interaction.deferReply();
+  const page = interaction.options.getInteger('page') || 1;
+  const { slice, totalPages, start } = buildCategoryLeaderboard(DRIFTBALL_IDS, 'points', page);
+  if (!slice.length) return interaction.editReply('No data available.');
+  const lines = slice.map(([name, s], i) => `${start + i + 1}. ${name} - ${s.points} pts`);
+  interaction.editReply(`**Driftball Leaderboard (Page ${page}/${totalPages})**\n\`\`\`\n${lines.join('\n')}\n\`\`\``);
+}
+
+if (commandName === 'driftballtop7leaderboard') {
+  await interaction.deferReply();
+  const page = interaction.options.getInteger('page') || 1;
+  const { slice, totalPages, start } = buildCategoryLeaderboard(DRIFTBALL_IDS, 'top7s', page);
+  if (!slice.length) return interaction.editReply('No data available.');
+  const lines = slice.map(([name, s], i) => `${start + i + 1}. ${name} - ${s.top7s} top 7s`);
+  interaction.editReply(`**Driftball Top 7 Leaderboard (Page ${page}/${totalPages})**\n\`\`\`\n${lines.join('\n')}\n\`\`\``);
+}
+
+if (commandName === 'driftballwrleaderboard') {
+  await interaction.deferReply();
+  const page = interaction.options.getInteger('page') || 1;
+  const { slice, totalPages, start } = buildCategoryLeaderboard(DRIFTBALL_IDS, 'wrs', page);
+  if (!slice.length) return interaction.editReply('No data available.');
+  const lines = slice.map(([name, s], i) => `${start + i + 1}. ${name} - ${s.wrs} WRs`);
+  interaction.editReply(`**Driftball WR Leaderboard (Page ${page}/${totalPages})**\n\`\`\`\n${lines.join('\n')}\n\`\`\``);
+}
+
+if (commandName === 'driftballimprove') {
+  await interaction.deferReply();
+  const name = interaction.options.getString('name');
+  const missing = buildCategoryImprove(DRIFTBALL_IDS, name);
+  if (!missing.length) return interaction.editReply(`${name} has a top 100 entry on all driftball challenges.`);
+  const chunks = [];
+  let chunk = '';
+  for (const m of missing) {
+    if ((chunk + m + '\n').length > 1900) { chunks.push(chunk); chunk = ''; }
+    chunk += m + '\n';
+  }
+  if (chunk) chunks.push(chunk);
+  await interaction.editReply(`**${name} - Missing Driftball Challenges (${missing.length})**\n\`\`\`\n${chunks[0]}\n\`\`\``);
+  for (let i = 1; i < chunks.length; i++) {
+    await interaction.followUp(`\`\`\`\n${chunks[i]}\n\`\`\``);
+  }
+}
+
+// Club
+if (commandName === 'clubleaderboard') {
+  await interaction.deferReply();
+  const page = interaction.options.getInteger('page') || 1;
+  const { slice, totalPages, start } = buildCategoryLeaderboard(CLUB_IDS, 'points', page);
+  if (!slice.length) return interaction.editReply('No data available.');
+  const lines = slice.map(([name, s], i) => `${start + i + 1}. ${name} - ${s.points} pts`);
+  interaction.editReply(`**Club Leaderboard (Page ${page}/${totalPages})**\n\`\`\`\n${lines.join('\n')}\n\`\`\``);
+}
+
+if (commandName === 'clubtop7leaderboard') {
+  await interaction.deferReply();
+  const page = interaction.options.getInteger('page') || 1;
+  const { slice, totalPages, start } = buildCategoryLeaderboard(CLUB_IDS, 'top7s', page);
+  if (!slice.length) return interaction.editReply('No data available.');
+  const lines = slice.map(([name, s], i) => `${start + i + 1}. ${name} - ${s.top7s} top 7s`);
+  interaction.editReply(`**Club Top 7 Leaderboard (Page ${page}/${totalPages})**\n\`\`\`\n${lines.join('\n')}\n\`\`\``);
+}
+
+if (commandName === 'clubwrleaderboard') {
+  await interaction.deferReply();
+  const page = interaction.options.getInteger('page') || 1;
+  const { slice, totalPages, start } = buildCategoryLeaderboard(CLUB_IDS, 'wrs', page);
+  if (!slice.length) return interaction.editReply('No data available.');
+  const lines = slice.map(([name, s], i) => `${start + i + 1}. ${name} - ${s.wrs} WRs`);
+  interaction.editReply(`**Club WR Leaderboard (Page ${page}/${totalPages})**\n\`\`\`\n${lines.join('\n')}\n\`\`\``);
+}
+
+if (commandName === 'clubimprove') {
+  await interaction.deferReply();
+  const name = interaction.options.getString('name');
+  const missing = buildCategoryImprove(CLUB_IDS, name);
+  if (!missing.length) return interaction.editReply(`${name} has a top 100 entry on all club challenges.`);
+  const chunks = [];
+  let chunk = '';
+  for (const m of missing) {
+    if ((chunk + m + '\n').length > 1900) { chunks.push(chunk); chunk = ''; }
+    chunk += m + '\n';
+  }
+  if (chunk) chunks.push(chunk);
+  await interaction.editReply(`**${name} - Missing Club Challenges (${missing.length})**\n\`\`\`\n${chunks[0]}\n\`\`\``);
+  for (let i = 1; i < chunks.length; i++) {
+    await interaction.followUp(`\`\`\`\n${chunks[i]}\n\`\`\``);
+  }
+}
+
+// Parkour
+if (commandName === 'parkourleaderboard') {
+  await interaction.deferReply();
+  const page = interaction.options.getInteger('page') || 1;
+  const { slice, totalPages, start } = buildCategoryLeaderboard(PARKOUR_IDS, 'points', page);
+  if (!slice.length) return interaction.editReply('No data available.');
+  const lines = slice.map(([name, s], i) => `${start + i + 1}. ${name} - ${s.points} pts`);
+  interaction.editReply(`**Parkour Leaderboard (Page ${page}/${totalPages})**\n\`\`\`\n${lines.join('\n')}\n\`\`\``);
+}
+
+if (commandName === 'parkourtop7leaderboard') {
+  await interaction.deferReply();
+  const page = interaction.options.getInteger('page') || 1;
+  const { slice, totalPages, start } = buildCategoryLeaderboard(PARKOUR_IDS, 'top7s', page);
+  if (!slice.length) return interaction.editReply('No data available.');
+  const lines = slice.map(([name, s], i) => `${start + i + 1}. ${name} - ${s.top7s} top 7s`);
+  interaction.editReply(`**Parkour Top 7 Leaderboard (Page ${page}/${totalPages})**\n\`\`\`\n${lines.join('\n')}\n\`\`\``);
+}
+
+if (commandName === 'parkourwrleaderboard') {
+  await interaction.deferReply();
+  const page = interaction.options.getInteger('page') || 1;
+  const { slice, totalPages, start } = buildCategoryLeaderboard(PARKOUR_IDS, 'wrs', page);
+  if (!slice.length) return interaction.editReply('No data available.');
+  const lines = slice.map(([name, s], i) => `${start + i + 1}. ${name} - ${s.wrs} WRs`);
+  interaction.editReply(`**Parkour WR Leaderboard (Page ${page}/${totalPages})**\n\`\`\`\n${lines.join('\n')}\n\`\`\``);
+}
+
+if (commandName === 'parkourimprove') {
+  await interaction.deferReply();
+  const name = interaction.options.getString('name');
+  const missing = buildCategoryImprove(PARKOUR_IDS, name);
+  if (!missing.length) return interaction.editReply(`${name} has a top 100 entry on all parkour challenges.`);
+  const chunks = [];
+  let chunk = '';
+  for (const m of missing) {
+    if ((chunk + m + '\n').length > 1900) { chunks.push(chunk); chunk = ''; }
+    chunk += m + '\n';
+  }
+  if (chunk) chunks.push(chunk);
+  await interaction.editReply(`**${name} - Missing Parkour Challenges (${missing.length})**\n\`\`\`\n${chunks[0]}\n\`\`\``);
+  for (let i = 1; i < chunks.length; i++) {
+    await interaction.followUp(`\`\`\`\n${chunks[i]}\n\`\`\``);
+  }
+}
+
+// Intro
+if (commandName === 'introleaderboard') {
+  await interaction.deferReply();
+  const page = interaction.options.getInteger('page') || 1;
+  const { slice, totalPages, start } = buildCategoryLeaderboard(INTRO_IDS, 'points', page);
+  if (!slice.length) return interaction.editReply('No data available.');
+  const lines = slice.map(([name, s], i) => `${start + i + 1}. ${name} - ${s.points} pts`);
+  interaction.editReply(`**Intro Leaderboard (Page ${page}/${totalPages})**\n\`\`\`\n${lines.join('\n')}\n\`\`\``);
+}
+
+if (commandName === 'introtop7leaderboard') {
+  await interaction.deferReply();
+  const page = interaction.options.getInteger('page') || 1;
+  const { slice, totalPages, start } = buildCategoryLeaderboard(INTRO_IDS, 'top7s', page);
+  if (!slice.length) return interaction.editReply('No data available.');
+  const lines = slice.map(([name, s], i) => `${start + i + 1}. ${name} - ${s.top7s} top 7s`);
+  interaction.editReply(`**Intro Top 7 Leaderboard (Page ${page}/${totalPages})**\n\`\`\`\n${lines.join('\n')}\n\`\`\``);
+}
+
+if (commandName === 'introwrleaderboard') {
+  await interaction.deferReply();
+  const page = interaction.options.getInteger('page') || 1;
+  const { slice, totalPages, start } = buildCategoryLeaderboard(INTRO_IDS, 'wrs', page);
+  if (!slice.length) return interaction.editReply('No data available.');
+  const lines = slice.map(([name, s], i) => `${start + i + 1}. ${name} - ${s.wrs} WRs`);
+  interaction.editReply(`**Intro WR Leaderboard (Page ${page}/${totalPages})**\n\`\`\`\n${lines.join('\n')}\n\`\`\``);
+}
+
+if (commandName === 'introimprove') {
+  await interaction.deferReply();
+  const name = interaction.options.getString('name');
+  const missing = buildCategoryImprove(INTRO_IDS, name);
+  if (!missing.length) return interaction.editReply(`${name} has a top 100 entry on all intro challenges.`);
+  const chunks = [];
+  let chunk = '';
+  for (const m of missing) {
+    if ((chunk + m + '\n').length > 1900) { chunks.push(chunk); chunk = ''; }
+    chunk += m + '\n';
+  }
+  if (chunk) chunks.push(chunk);
+  await interaction.editReply(`**${name} - Missing Intro Challenges (${missing.length})**\n\`\`\`\n${chunks[0]}\n\`\`\``);
+  for (let i = 1; i < chunks.length; i++) {
+    await interaction.followUp(`\`\`\`\n${chunks[i]}\n\`\`\``);
+  }
+}
+
+// Ways To Climb
+if (commandName === 'waystoclimbleaderboard') {
+  await interaction.deferReply();
+  const page = interaction.options.getInteger('page') || 1;
+  const { slice, totalPages, start } = buildCategoryLeaderboard(WAYS_TO_CLIMB_IDS, 'points', page);
+  if (!slice.length) return interaction.editReply('No data available.');
+  const lines = slice.map(([name, s], i) => `${start + i + 1}. ${name} - ${s.points} pts`);
+  interaction.editReply(`**Ways To Climb Leaderboard (Page ${page}/${totalPages})**\n\`\`\`\n${lines.join('\n')}\n\`\`\``);
+}
+
+if (commandName === 'waystoclimbtop7leaderboard') {
+  await interaction.deferReply();
+  const page = interaction.options.getInteger('page') || 1;
+  const { slice, totalPages, start } = buildCategoryLeaderboard(WAYS_TO_CLIMB_IDS, 'top7s', page);
+  if (!slice.length) return interaction.editReply('No data available.');
+  const lines = slice.map(([name, s], i) => `${start + i + 1}. ${name} - ${s.top7s} top 7s`);
+  interaction.editReply(`**Ways To Climb Top 7 Leaderboard (Page ${page}/${totalPages})**\n\`\`\`\n${lines.join('\n')}\n\`\`\``);
+}
+
+if (commandName === 'waystoclimbwrleaderboard') {
+  await interaction.deferReply();
+  const page = interaction.options.getInteger('page') || 1;
+  const { slice, totalPages, start } = buildCategoryLeaderboard(WAYS_TO_CLIMB_IDS, 'wrs', page);
+  if (!slice.length) return interaction.editReply('No data available.');
+  const lines = slice.map(([name, s], i) => `${start + i + 1}. ${name} - ${s.wrs} WRs`);
+  interaction.editReply(`**Ways To Climb WR Leaderboard (Page ${page}/${totalPages})**\n\`\`\`\n${lines.join('\n')}\n\`\`\``);
+}
+
+if (commandName === 'waystoclimbimprove') {
+  await interaction.deferReply();
+  const name = interaction.options.getString('name');
+  const missing = buildCategoryImprove(WAYS_TO_CLIMB_IDS, name);
+  if (!missing.length) return interaction.editReply(`${name} has a top 100 entry on all Ways To Climb challenges.`);
+  const chunks = [];
+  let chunk = '';
+  for (const m of missing) {
+    if ((chunk + m + '\n').length > 1900) { chunks.push(chunk); chunk = ''; }
+    chunk += m + '\n';
+  }
+  if (chunk) chunks.push(chunk);
+  await interaction.editReply(`**${name} - Missing Ways To Climb Challenges (${missing.length})**\n\`\`\`\n${chunks[0]}\n\`\`\``);
+  for (let i = 1; i < chunks.length; i++) {
+    await interaction.followUp(`\`\`\`\n${chunks[i]}\n\`\`\``);
+  }
+}
+
+// Intro Ways To Climb
+if (commandName === 'introwaystoclimbleaderboard') {
+  await interaction.deferReply();
+  const page = interaction.options.getInteger('page') || 1;
+  const { slice, totalPages, start } = buildCategoryLeaderboard(INTRO_WAYS_TO_CLIMB_IDS, 'points', page);
+  if (!slice.length) return interaction.editReply('No data available.');
+  const lines = slice.map(([name, s], i) => `${start + i + 1}. ${name} - ${s.points} pts`);
+  interaction.editReply(`**Intro Ways To Climb Leaderboard (Page ${page}/${totalPages})**\n\`\`\`\n${lines.join('\n')}\n\`\`\``);
+}
+
+if (commandName === 'introwaystoclimbtop7leaderboard') {
+  await interaction.deferReply();
+  const page = interaction.options.getInteger('page') || 1;
+  const { slice, totalPages, start } = buildCategoryLeaderboard(INTRO_WAYS_TO_CLIMB_IDS, 'top7s', page);
+  if (!slice.length) return interaction.editReply('No data available.');
+  const lines = slice.map(([name, s], i) => `${start + i + 1}. ${name} - ${s.top7s} top 7s`);
+  interaction.editReply(`**Intro Ways To Climb Top 7 Leaderboard (Page ${page}/${totalPages})**\n\`\`\`\n${lines.join('\n')}\n\`\`\``);
+}
+
+if (commandName === 'introwaystoclimbwrleaderboard') {
+  await interaction.deferReply();
+  const page = interaction.options.getInteger('page') || 1;
+  const { slice, totalPages, start } = buildCategoryLeaderboard(INTRO_WAYS_TO_CLIMB_IDS, 'wrs', page);
+  if (!slice.length) return interaction.editReply('No data available.');
+  const lines = slice.map(([name, s], i) => `${start + i + 1}. ${name} - ${s.wrs} WRs`);
+  interaction.editReply(`**Intro Ways To Climb WR Leaderboard (Page ${page}/${totalPages})**\n\`\`\`\n${lines.join('\n')}\n\`\`\``);
+}
+
+if (commandName === 'introwaystoclimbimprove') {
+  await interaction.deferReply();
+  const name = interaction.options.getString('name');
+  const missing = buildCategoryImprove(INTRO_WAYS_TO_CLIMB_IDS, name);
+  if (!missing.length) return interaction.editReply(`${name} has a top 100 entry on all Intro Ways To Climb challenges.`);
+  const chunks = [];
+  let chunk = '';
+  for (const m of missing) {
+    if ((chunk + m + '\n').length > 1900) { chunks.push(chunk); chunk = ''; }
+    chunk += m + '\n';
+  }
+  if (chunk) chunks.push(chunk);
+  await interaction.editReply(`**${name} - Missing Intro Ways To Climb Challenges (${missing.length})**\n\`\`\`\n${chunks[0]}\n\`\`\``);
+  for (let i = 1; i < chunks.length; i++) {
+    await interaction.followUp(`\`\`\`\n${chunks[i]}\n\`\`\``);
+  }
+}  
+else if (commandName === 'ask') {
     await interaction.deferReply();
     const question = interaction.options.getString('question');
     const userId = interaction.user.id;
