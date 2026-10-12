@@ -1274,11 +1274,21 @@ else if (commandName === '1v1') {
     const match = d.name.match(/WeeklyRace(\d+)/i);
     return match && parseInt(match[1]) >= 22;
   }).map(([id]) => id);
-
+const getIsolatedCategoryPoints = (ids) => {
+  let pts1 = 0, pts2 = 0;
+  for (const id of ids) {
+    const entries = cache[id] || [];
+    const e1 = entries.find(e => e.username.toLowerCase() === p1.name.toLowerCase());
+    const e2 = entries.find(e => e.username.toLowerCase() === p2.name.toLowerCase());
+    if (e1) pts1 += getPoints(e1.rank);
+    if (e2) pts2 += getPoints(e2.rank);
+  }
+  return [pts1, pts2];
+};
   const [p1PermPoints, p2PermPoints] = getCategoryPoints(permIds);
   const [p1WeeklyPoints, p2WeeklyPoints] = getCategoryPoints(weeklyIds);
   const [p1RacePoints, p2RacePoints] = getCategoryPoints(raceIds);
-  const [p1ZdriftPoints, p2ZdriftPoints] = getCategoryPoints(ZDRIFT_IDS);
+  const [p1ZdriftPoints, p2ZdriftPoints] = getIsolatedCategoryPoints(ZDRIFT_IDS);
   const [p1BoulderingPoints, p2BoulderingPoints] = getCategoryPoints(BOULDERING_IDS);
   const [p1DribblePoints, p2DribblePoints] = getCategoryPoints(DRIBBLE_IDS);
   const [p1DriftballPoints, p2DriftballPoints] = getCategoryPoints(DRIFTBALL_IDS);
