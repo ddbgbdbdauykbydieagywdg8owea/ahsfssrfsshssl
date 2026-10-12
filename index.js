@@ -1341,6 +1341,141 @@ else if (commandName === 'racingleaderboard') {
 
     interaction.editReply({ embeds: [embed] });
   }
+else if (commandName === 'boulderingleaderboard') {
+    await interaction.deferReply();
+    const page = interaction.options.getInteger('page') || 1;
+    const perPage = 30;
+
+    const boulderingStats = {};
+    for (const id of BOULDERING_IDS) {
+      const entries = cache[id];
+      if (!entries) continue;
+      entries.forEach(entry => {
+        const rank = entry.rank;
+        if (rank > 100) return;
+        const name = entry.username || 'Unknown';
+        const userId = entry.user_id || name;
+        if (!boulderingStats[userId]) {
+          boulderingStats[userId] = { name, totalPoints: 0, wrCount: 0, top7Count: 0, top100Count: 0, ranks: [] };
+        }
+        boulderingStats[userId].totalPoints += getPoints(rank);
+        boulderingStats[userId].top100Count++;
+        if (rank === 1) boulderingStats[userId].wrCount++;
+        if (rank <= 7) boulderingStats[userId].top7Count++;
+        boulderingStats[userId].ranks.push(rank);
+      });
+    }
+
+    const sorted = Object.values(boulderingStats).sort((a, b) => b.totalPoints - a.totalPoints);
+    const totalPages = Math.ceil(sorted.length / perPage);
+    const slice = sorted.slice((page - 1) * perPage, page * perPage);
+
+    if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
+
+    const lines = slice.map((p, i) => {
+      const rank = (page - 1) * perPage + i + 1;
+      const avgRank = p.ranks.length ? (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1) : 'N/A';
+      return `#${rank} **${p.name}** — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
+    });
+
+    const embed = new EmbedBuilder()
+      .setTitle('Bouldering Leaderboard')
+      .setColor(0x8B4513)
+      .setDescription(lines.join('\n'))
+      .setFooter({ text: `Page ${page}/${totalPages} • Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+
+    interaction.editReply({ embeds: [embed] });
+  }
+
+  else if (commandName === 'boulderingtop7leaderboard') {
+    await interaction.deferReply();
+    const page = interaction.options.getInteger('page') || 1;
+    const perPage = 30;
+
+    const boulderingStats = {};
+    for (const id of BOULDERING_IDS) {
+      const entries = cache[id];
+      if (!entries) continue;
+      entries.forEach(entry => {
+        const rank = entry.rank;
+        if (rank > 100) return;
+        const name = entry.username || 'Unknown';
+        const userId = entry.user_id || name;
+        if (!boulderingStats[userId]) {
+          boulderingStats[userId] = { name, totalPoints: 0, wrCount: 0, top7Count: 0, top100Count: 0, ranks: [] };
+        }
+        boulderingStats[userId].totalPoints += getPoints(rank);
+        boulderingStats[userId].top100Count++;
+        if (rank === 1) boulderingStats[userId].wrCount++;
+        if (rank <= 7) boulderingStats[userId].top7Count++;
+        boulderingStats[userId].ranks.push(rank);
+      });
+    }
+
+    const sorted = Object.values(boulderingStats).sort((a, b) => b.top7Count - a.top7Count);
+    const totalPages = Math.ceil(sorted.length / perPage);
+    const slice = sorted.slice((page - 1) * perPage, page * perPage);
+
+    if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
+
+    const lines = slice.map((p, i) => {
+      const rank = (page - 1) * perPage + i + 1;
+      return `#${rank} **${p.name}** — Top7: ${p.top7Count} | 1st: ${p.wrCount} | Top100: ${p.top100Count}`;
+    });
+
+    const embed = new EmbedBuilder()
+      .setTitle('Bouldering — Top 7 Leaderboard')
+      .setColor(0x8B4513)
+      .setDescription(lines.join('\n'))
+      .setFooter({ text: `Page ${page}/${totalPages} • Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+
+    interaction.editReply({ embeds: [embed] });
+  }
+
+  else if (commandName === 'boulderingwrleaderboard') {
+    await interaction.deferReply();
+    const page = interaction.options.getInteger('page') || 1;
+    const perPage = 30;
+
+    const boulderingStats = {};
+    for (const id of BOULDERING_IDS) {
+      const entries = cache[id];
+      if (!entries) continue;
+      entries.forEach(entry => {
+        const rank = entry.rank;
+        if (rank > 100) return;
+        const name = entry.username || 'Unknown';
+        const userId = entry.user_id || name;
+        if (!boulderingStats[userId]) {
+          boulderingStats[userId] = { name, totalPoints: 0, wrCount: 0, top7Count: 0, top100Count: 0, ranks: [] };
+        }
+        boulderingStats[userId].totalPoints += getPoints(rank);
+        boulderingStats[userId].top100Count++;
+        if (rank === 1) boulderingStats[userId].wrCount++;
+        if (rank <= 7) boulderingStats[userId].top7Count++;
+        boulderingStats[userId].ranks.push(rank);
+      });
+    }
+
+    const sorted = Object.values(boulderingStats).sort((a, b) => b.wrCount - a.wrCount);
+    const totalPages = Math.ceil(sorted.length / perPage);
+    const slice = sorted.slice((page - 1) * perPage, page * perPage);
+
+    if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
+
+    const lines = slice.map((p, i) => {
+      const rank = (page - 1) * perPage + i + 1;
+      return `#${rank} **${p.name}** — WRs: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count}`;
+    });
+
+    const embed = new EmbedBuilder()
+      .setTitle('Bouldering — World Record Leaderboard')
+      .setColor(0x8B4513)
+      .setDescription(lines.join('\n'))
+      .setFooter({ text: `Page ${page}/${totalPages} • Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+
+    interaction.editReply({ embeds: [embed] });
+  }
 else if (commandName === 'ask') {
     await interaction.deferReply();
     const question = interaction.options.getString('question');
