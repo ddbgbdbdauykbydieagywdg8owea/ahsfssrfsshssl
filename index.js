@@ -730,7 +730,7 @@ client.on('interactionCreate', async interaction => {
     const { commandName } = interaction;
     const focused = interaction.options.getFocused().toLowerCase();
 
-    if (commandName === 'stats' || commandName === 'improve' || commandName === '1v1' || commandName === 'summary' || commandName === 'zdriftimprove' || commandName === 'zstats' || commandName === 'zsummary') {
+    if (commandName === 'stats' || commandName === 'improve' || commandName === '1v1' || commandName === 'summary' || commandName === 'zdriftimprove' || commandName === 'zstats' || commandName === 'zsummary' || commandName === 'boulderingimprove') {
       const matches = Object.values(playerStats)
         .filter(p => p.name.toLowerCase().includes(focused))
         .sort((a, b) => b.totalPoints - a.totalPoints)
@@ -1475,7 +1475,39 @@ else if (commandName === 'boulderingleaderboard') {
 
     interaction.editReply({ embeds: [embed] });
   }
-else if (commandName === 'ask') {
+else if (commandName === 'boulderingimprove') {
+    await interaction.deferReply();
+    const name = interaction.options.getString('name').toLowerCase();
+
+    const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name)
+      || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name));
+
+    if (!player) return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
+
+    const boulderingPlayerIds = new Set();
+    for (const id of BOULDERING_IDS) {
+      const entries = cache[id];
+      if (!entries) continue;
+      const found = entries.find(e => e.username && e.username.toLowerCase() === player.name.toLowerCase());
+      if (found) boulderingPlayerIds.add(id);
+    }
+
+    const missing = BOULDERING_IDS.filter(id => !boulderingPlayerIds.has(id));
+
+    if (missing.length === 0) return interaction.editReply(`**${player.name}** has a top 100 entry on every bouldering challenge!`);
+
+    const lines = missing.map(id => `- **${getChallengeName(id)}**`);
+    const description = [`**${player.name}** has no top 100 entry on ${missing.length} bouldering challenge${missing.length === 1 ? '' : 's'}:`, ``, lines.join('\n')].join('\n');
+
+    const embed = new EmbedBuilder()
+      .setTitle(`${player.name} — Bouldering Challenges to Improve`)
+      .setColor(0x8B4513)
+      .setDescription(description.slice(0, 4096))
+      .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+
+    return interaction.editReply({ embeds: [embed] });
+  }
+  else if (commandName === 'ask') {
     await interaction.deferReply();
     const question = interaction.options.getString('question');
     const userId = interaction.user.id;
