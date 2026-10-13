@@ -548,66 +548,6 @@ function roundUpToNearest005(num) {
 function getChallengeType(id) {
   return CHALLENGE_NAMES[id]?.type || null;
 }
-function buildCategoryLeaderboard(ids, sortBy, page, perPage = 10) {
-  const players = {};
-  for (const id of ids) {
-    const entries = cache[id] || [];
-    for (const entry of entries) {
-      if (!players[entry.username]) {
-        players[entry.username] = { points: 0, top7s: 0, wrs: 0, top100s: 0, ranks: [] };
-      }
-      const pts = getPoints(entry.rank);
-      players[entry.username].points += pts;
-      players[entry.username].top100s += 1;
-      players[entry.username].ranks.push(entry.rank);
-      if (entry.rank === 1) players[entry.username].wrs += 1;
-      if (entry.rank <= 7) players[entry.username].top7s += 1;
-    }
-  }
-
-  let sorted;
-  if (sortBy === 'points') {
-    sorted = Object.entries(players).sort((a, b) => b[1].points - a[1].points);
-  } else if (sortBy === 'top7s') {
-    sorted = Object.entries(players).sort((a, b) => b[1].top7s - a[1].top7s);
-  } else if (sortBy === 'wrs') {
-    sorted = Object.entries(players).sort((a, b) => b[1].wrs - a[1].wrs);
-  }
-
-  const totalPages = Math.ceil(sorted.length / perPage);
-  const start = (page - 1) * perPage;
-  const slice = sorted.slice(start, start + perPage);
-
-  return { slice, totalPages, start };
-}
-
-  let sorted;
-  if (sortBy === 'points') {
-    sorted = Object.entries(players).sort((a, b) => b[1].points - a[1].points);
-  } else if (sortBy === 'top7s') {
-    sorted = Object.entries(players).sort((a, b) => b[1].top7s - a[1].top7s);
-  } else if (sortBy === 'wrs') {
-    sorted = Object.entries(players).sort((a, b) => b[1].wrs - a[1].wrs);
-  }
-
-  const totalPages = Math.ceil(sorted.length / perPage);
-  const start = (page - 1) * perPage;
-  const slice = sorted.slice(start, start + perPage);
-
-  return { slice, totalPages, start };
-}
-
-function buildCategoryImprove(ids, playerName) {
-  const missing = [];
-  for (const id of ids) {
-    const entries = cache[id] || [];
-    const found = entries.find(e => e.username.toLowerCase() === playerName.toLowerCase());
-    if (!found) {
-      missing.push(getChallengeName(id) || id);
-    }
-  }
-  return missing;
-}
 // ============================================================
 // SET YOUR ALERT CHANNEL IDs HERE
 // ============================================================
