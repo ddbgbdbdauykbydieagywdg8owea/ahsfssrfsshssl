@@ -809,12 +809,13 @@ async function startGauntlet() {
 
   const id = eligible[Math.floor(Math.random() * eligible.length)];
   const entries = cache[id] || [];
-  const wr = entries.find(e => e.rank === 1);
-  const seventh = entries.find(e => e.rank === 7);
+const wr = entries.find(e => e.rank === 1);
+const fourth = entries.find(e => e.rank === 4);
+const seventh = entries.find(e => e.rank === 7);
 
-  if (!wr || !seventh) return startGauntlet();
+if (!wr || !fourth || !seventh) return startGauntlet();
 
-  const target = roundUpToNearest005(wr.record + (seventh.record - wr.record) * 0.65);
+const target = roundUpToNearest005(fourth.record + (seventh.record - fourth.record) * 0.65);
 
   gauntletChallenge = id;
   gauntletLastChallenge = id;
