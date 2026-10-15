@@ -987,7 +987,13 @@ try {
   }
 }
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+  ]
+});
 
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}`);
@@ -2576,6 +2582,141 @@ else if (commandName === 'introwaystoclimbimprove') {
   const embed = new EmbedBuilder()
     .setTitle(`${player.name} — Intro Ways To Climb Challenges to Improve`)
     .setColor(0xf5a623)
+    .setDescription(description.slice(0, 4096))
+    .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+  return interaction.editReply({ embeds: [embed] });
+}
+else if (commandName === 'boulderingleaderboard') {
+  await interaction.deferReply();
+  const page = interaction.options.getInteger('page') || 1;
+  const perPage = 30;
+  const stats = {};
+  for (const id of BOULDERING_IDS) {
+    const entries = cache[id];
+    if (!entries) continue;
+    entries.forEach(entry => {
+      const rank = entry.rank;
+      if (rank > 100) return;
+      const name = entry.username || 'Unknown';
+      const userId = entry.user_id || name;
+      if (!stats[userId]) stats[userId] = { name, totalPoints: 0, wrCount: 0, top7Count: 0, top100Count: 0, ranks: [] };
+      stats[userId].totalPoints += getPoints(rank);
+      stats[userId].top100Count++;
+      if (rank === 1) stats[userId].wrCount++;
+      if (rank <= 7) stats[userId].top7Count++;
+      stats[userId].ranks.push(rank);
+    });
+  }
+  const sorted = Object.values(stats).sort((a, b) => b.totalPoints - a.totalPoints);
+  const totalPages = Math.ceil(sorted.length / perPage);
+  const slice = sorted.slice((page - 1) * perPage, page * perPage);
+  if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
+  const lines = slice.map((p, i) => {
+    const rank = (page - 1) * perPage + i + 1;
+    const avgRank = p.ranks.length ? (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1) : 'N/A';
+    return `#${rank} **${p.name}** — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
+  });
+  const embed = new EmbedBuilder()
+    .setTitle('Bouldering Leaderboard')
+    .setColor(0x8B4513)
+    .setDescription(lines.join('\n'))
+    .setFooter({ text: `Page ${page}/${totalPages} • Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+  interaction.editReply({ embeds: [embed] });
+}
+
+else if (commandName === 'boulderingtop7leaderboard') {
+  await interaction.deferReply();
+  const page = interaction.options.getInteger('page') || 1;
+  const perPage = 30;
+  const stats = {};
+  for (const id of BOULDERING_IDS) {
+    const entries = cache[id];
+    if (!entries) continue;
+    entries.forEach(entry => {
+      const rank = entry.rank;
+      if (rank > 100) return;
+      const name = entry.username || 'Unknown';
+      const userId = entry.user_id || name;
+      if (!stats[userId]) stats[userId] = { name, totalPoints: 0, wrCount: 0, top7Count: 0, top100Count: 0, ranks: [] };
+      stats[userId].totalPoints += getPoints(rank);
+      stats[userId].top100Count++;
+      if (rank === 1) stats[userId].wrCount++;
+      if (rank <= 7) stats[userId].top7Count++;
+      stats[userId].ranks.push(rank);
+    });
+  }
+  const sorted = Object.values(stats).sort((a, b) => b.top7Count - a.top7Count);
+  const totalPages = Math.ceil(sorted.length / perPage);
+  const slice = sorted.slice((page - 1) * perPage, page * perPage);
+  if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
+  const lines = slice.map((p, i) => {
+    const rank = (page - 1) * perPage + i + 1;
+    return `#${rank} **${p.name}** — Top7: ${p.top7Count} | 1st: ${p.wrCount} | Top100: ${p.top100Count}`;
+  });
+  const embed = new EmbedBuilder()
+    .setTitle('Bouldering — Top 7 Leaderboard')
+    .setColor(0x8B4513)
+    .setDescription(lines.join('\n'))
+    .setFooter({ text: `Page ${page}/${totalPages} • Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+  interaction.editReply({ embeds: [embed] });
+}
+
+else if (commandName === 'boulderingwrleaderboard') {
+  await interaction.deferReply();
+  const page = interaction.options.getInteger('page') || 1;
+  const perPage = 30;
+  const stats = {};
+  for (const id of BOULDERING_IDS) {
+    const entries = cache[id];
+    if (!entries) continue;
+    entries.forEach(entry => {
+      const rank = entry.rank;
+      if (rank > 100) return;
+      const name = entry.username || 'Unknown';
+      const userId = entry.user_id || name;
+      if (!stats[userId]) stats[userId] = { name, totalPoints: 0, wrCount: 0, top7Count: 0, top100Count: 0, ranks: [] };
+      stats[userId].totalPoints += getPoints(rank);
+      stats[userId].top100Count++;
+      if (rank === 1) stats[userId].wrCount++;
+      if (rank <= 7) stats[userId].top7Count++;
+      stats[userId].ranks.push(rank);
+    });
+  }
+  const sorted = Object.values(stats).sort((a, b) => b.wrCount - a.wrCount);
+  const totalPages = Math.ceil(sorted.length / perPage);
+  const slice = sorted.slice((page - 1) * perPage, page * perPage);
+  if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
+  const lines = slice.map((p, i) => {
+    const rank = (page - 1) * perPage + i + 1;
+    return `#${rank} **${p.name}** — WRs: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count}`;
+  });
+  const embed = new EmbedBuilder()
+    .setTitle('Bouldering — World Record Leaderboard')
+    .setColor(0x8B4513)
+    .setDescription(lines.join('\n'))
+    .setFooter({ text: `Page ${page}/${totalPages} • Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+  interaction.editReply({ embeds: [embed] });
+}
+
+else if (commandName === 'boulderingimprove') {
+  await interaction.deferReply();
+  const name = interaction.options.getString('name').toLowerCase();
+  const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name)
+    || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name));
+  if (!player) return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
+  const found = new Set();
+  for (const id of BOULDERING_IDS) {
+    const entries = cache[id];
+    if (!entries) continue;
+    if (entries.find(e => e.username && e.username.toLowerCase() === player.name.toLowerCase())) found.add(id);
+  }
+  const missing = BOULDERING_IDS.filter(id => !found.has(id));
+  if (missing.length === 0) return interaction.editReply(`**${player.name}** has a top 100 entry on every bouldering challenge!`);
+  const lines = missing.map(id => `- **${getChallengeName(id)}**`);
+  const description = [`**${player.name}** has no top 100 entry on ${missing.length} bouldering challenge${missing.length === 1 ? '' : 's'}:`, ``, lines.join('\n')].join('\n');
+  const embed = new EmbedBuilder()
+    .setTitle(`${player.name} — Bouldering Challenges to Improve`)
+    .setColor(0x8B4513)
     .setDescription(description.slice(0, 4096))
     .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
   return interaction.editReply({ embeds: [embed] });
