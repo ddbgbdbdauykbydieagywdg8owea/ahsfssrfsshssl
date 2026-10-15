@@ -3384,5 +3384,18 @@ let searchSeconds = null;
   }
 
 });
+client.on('messageCreate', async message => {
+  if (message.author.bot) return;
+  if (message.channel.id !== '1560102840574414948') return;
 
+  if (message.content.trim().toLowerCase() === 'changegauntlet') {
+    await startGauntlet();
+    await message.reply('Gauntlet has been changed.');
+  }
+
+  if (message.content.trim().toLowerCase() === 'changespotlight') {
+    await endSpotlight();
+    await message.reply('Spotlight has been changed.');
+  }
+});
 client.login(BOT_TOKEN);
