@@ -1056,7 +1056,7 @@ function buildMiniCupEmbed(state) {
       '**__Live Cup Standings__**',
       ...standingsLines,
     ].join('\n').slice(0, 4096))
-    .setFooter({ text: `Cup #${state.cupNumber} • Updates every 2 mins ||CUPSTATE:${encodedState}||` });
+    .setFooter({ text: `Cup #${state.cupNumber} • Updates every 2 mins` }); // Removed the giant encoded string here!
 
   return { mainEmbed, standings };
 }
@@ -1136,7 +1136,7 @@ async function startMiniCup(previousCupNumber = 0) {
     challenges,
   };
 
-  // 🔴 PLACE IT RIGHT HERE: Save state to staff channel immediately
+  //  PLACE IT RIGHT HERE: Save state to staff channel immediately
   await saveCupStateToStaffChannel(miniCupState);
 
   const { mainEmbed } = buildMiniCupEmbed(miniCupState);
