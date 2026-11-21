@@ -1108,7 +1108,7 @@ async function restoreMiniCupFromDiscord() {
   }
 }
 
-async function startMiniCup(previousCupNumber = 0) {
+here? async function startMiniCup(previousCupNumber = 0) {
   const channel = client.channels.cache.get(MINI_CUP_CHANNEL_ID);
   if (!channel) return;
 
