@@ -1176,6 +1176,7 @@ async function startMiniCup(previousCupNumber = 0) {
     challenges,
   };
 
+  // This await now safely sits inside the async function startMiniCup
   await saveCupStateToStaffChannel(miniCupState);
 
   const { mainEmbed } = buildMiniCupEmbed(miniCupState);
