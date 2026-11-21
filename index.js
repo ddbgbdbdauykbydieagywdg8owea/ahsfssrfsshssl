@@ -656,15 +656,20 @@ async function checkAlerts(newCache) {
   const pbChannel = client.channels.cache.get(PB_CHANNEL_ID);
 
   for (const [challengeId, newEntries] of Object.entries(newCache)) {
+    if (!Array.isArray(newEntries) || newEntries.length === 0) continue;
     const oldEntries = previousCache[challengeId] || [];
+    if (oldEntries.length === 0) continue;
 
     for (const newEntry of newEntries) {
       const oldEntry = oldEntries.find(e => e.user_id === newEntry.user_id || e.username === newEntry.username);
 
       if (newEntry.rank === 1) {
-        const oldWr = oldEntries.find(e => e.rank === 1);
-        const isNewWr = !oldWr || oldWr.username !== newEntry.username || oldWr.record !== newEntry.record;
-        if (isNewWr && wrChannel) {
+        const oldWrs = oldEntries.filter(e => e.rank === 1);
+        const wasAlreadyWr = oldWrs.some(
+          w => (w.user_id && w.user_id === newEntry.user_id || w.username === newEntry.username) &&
+               w.record.toFixed(3) === newEntry.record.toFixed(3)
+        );
+        if (!wasAlreadyWr && wrChannel) {
           const embed = new EmbedBuilder()
             .setTitle('New World Record')
             .setColor(0xffd700)
@@ -673,7 +678,6 @@ async function checkAlerts(newCache) {
           wrChannel.send({ embeds: [embed] }).catch(console.error);
         }
       }
-
       if (newEntry.rank >= 2 && newEntry.rank <= 7) {
         const wasAlreadyTop7 = oldEntry && oldEntry.rank <= 7;
         if (!wasAlreadyTop7 && top7Channel) {
