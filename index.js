@@ -1120,6 +1120,11 @@ async function startMiniCup(previousCupNumber = 0) {
   const waysToClimbPicks = pickRandomUnique(WAYS_TO_CLIMB_IDS, usedIds, 1);
   waysToClimbPicks.forEach(id => usedIds.add(id));
 
+  // Safeguard: Add ALL intro and ways to climb IDs to usedIds 
+  // so Parkour, Club, and other pools can never touch them.
+  INTRO_IDS.forEach(id => usedIds.add(id));
+  WAYS_TO_CLIMB_IDS.forEach(id => usedIds.add(id));
+
   const nodribblePicks = pickRandomUnique(NODRIBBLE_DRIFTBALL_IDS, usedIds, 5);
   nodribblePicks.forEach(id => usedIds.add(id));
 
@@ -1135,7 +1140,6 @@ async function startMiniCup(previousCupNumber = 0) {
   const boulderingPicks = pickRandomUnique(BOULDERING_IDS, usedIds, 5);
   boulderingPicks.forEach(id => usedIds.add(id));
 
-  // Capture the exact millisecond the cup is started
   const cupStartTime = Date.now();
 
   const buildChallengeObj = (id, category) => {
@@ -1146,8 +1150,6 @@ async function startMiniCup(previousCupNumber = 0) {
 
     const snapshot = {};
     for (const e of entries) {
-      // e.timestamp must be greater than or equal to when the cup started
-      // Note: Change `e.timestamp` to match whatever property your entry uses for dates (e.g. e.date, e.timeSubmitted)
       if (e.username && e.record <= target && e.timestamp >= cupStartTime) {
         snapshot[e.username] = e.record;
       }
@@ -1173,7 +1175,7 @@ async function startMiniCup(previousCupNumber = 0) {
 
   miniCupState = {
     cupNumber: previousCupNumber + 1,
-    startTime: cupStartTime, // Saved in state so it persists across updates
+    startTime: cupStartTime,
     challenges,
   };
 
