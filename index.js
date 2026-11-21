@@ -990,11 +990,9 @@ function buildMiniCupEmbed(state) {
       '**__Live Cup Standings__**',
       ...standingsLines,
     ].join('\n').slice(0, 4096))
-    .setFooter({ text: `Cup #${state.cupNumber} • Completes when a player reaches 8/8 • Updates every 2 mins` });
+    .setFooter({ text: `Cup #${state.cupNumber} • Updates every 2 mins ||CUPSTATE:${encodedState}||` });
 
-  const stateMessageContent = `||CUPSTATE:${encodedState}||`;
-
-  return { mainEmbed, stateMessageContent, standings };
+  return { mainEmbed, standings };
 }
 
 async function restoreMiniCupFromDiscord() {
@@ -1004,12 +1002,13 @@ async function restoreMiniCupFromDiscord() {
   try {
     const recent = await channel.messages.fetch({ limit: 15 });
     const botMsg = recent.find(
-      m => m.author.id === client.user.id && m.content && m.content.includes('CUPSTATE:')
+      m => m.author.id === client.user.id && m.embeds[0]?.footer?.text?.includes('CUPSTATE:')
     );
 
     if (!botMsg) return false;
 
-    const match = botMsg.content.match(/CUPSTATE:([A-Za-z0-9+/=]+)/);
+    const footerText = botMsg.embeds[0].footer.text;
+    const match = footerText.match(/CUPSTATE:([A-Za-z0-9+/=]+)/);
     if (!match) return false;
 
     const decoded = JSON.parse(Buffer.from(match[1], 'base64').toString('utf8'));
@@ -1044,8 +1043,6 @@ async function startMiniCup(previousCupNumber = 0) {
     const seventh = entries.find(e => e.rank === 7);
     const target = roundUpToNearest005(fourth.record + (seventh.record - fourth.record) * 0.65);
 
-    // ONLY store players whose record is already <= target. 
-    // This keeps the hidden CUPSTATE string under 300 characters no matter how many thousands of players exist.
     const snapshot = {};
     for (const e of entries) {
       if (e.username && e.record <= target) {
@@ -1073,16 +1070,16 @@ async function startMiniCup(previousCupNumber = 0) {
     challenges,
   };
 
-  const { mainEmbed, stateMessageContent } = buildMiniCupEmbed(miniCupState);
+  const { mainEmbed } = buildMiniCupEmbed(miniCupState);
 
   try {
-    // Always send a brand-new message when forcing a cup rotation
-    const sent = await channel.send({ content: stateMessageContent, embeds: [mainEmbed] });
+    const sent = await channel.send({ embeds: [mainEmbed] });
     miniCupMessageId = sent.id;
   } catch (e) {
     console.error('Failed to post Mini Cup:', e.message);
   }
 }
+
 async function updateMiniCup() {
   const channel = client.channels.cache.get(MINI_CUP_CHANNEL_ID);
   if (!channel) return;
@@ -1095,7 +1092,7 @@ async function updateMiniCup() {
     }
   }
 
-  const { mainEmbed, stateMessageContent, standings } = buildMiniCupEmbed(miniCupState);
+  const { mainEmbed, standings } = buildMiniCupEmbed(miniCupState);
 
   const fullSweepWinner = standings.find(s => s.clears >= 8);
 
@@ -1124,9 +1121,9 @@ async function updateMiniCup() {
   try {
     if (miniCupMessageId) {
       const msg = await channel.messages.fetch(miniCupMessageId);
-      await msg.edit({ content: stateMessageContent, embeds: [mainEmbed] });
+      await msg.edit({ embeds: [mainEmbed] });
     } else {
-      const msg = await channel.send({ content: stateMessageContent, embeds: [mainEmbed] });
+      const msg = await channel.send({ embeds: [mainEmbed] });
       miniCupMessageId = msg.id;
     }
   } catch (e) {
