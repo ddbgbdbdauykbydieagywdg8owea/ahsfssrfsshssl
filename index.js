@@ -1044,6 +1044,8 @@ async function startMiniCup(previousCupNumber = 0) {
     const seventh = entries.find(e => e.rank === 7);
     const target = roundUpToNearest005(fourth.record + (seventh.record - fourth.record) * 0.65);
 
+    // ONLY store players whose record is already <= target. 
+    // This keeps the hidden CUPSTATE string under 300 characters no matter how many thousands of players exist.
     const snapshot = {};
     for (const e of entries) {
       if (e.username && e.record <= target) {
