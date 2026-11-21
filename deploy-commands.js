@@ -260,6 +260,11 @@ const commands = [
     .addIntegerOption(opt =>
       opt.setName('page').setDescription('Page number').setMinValue(1)),
   new SlashCommandBuilder()
+    .setName('mmrleaderboard')
+    .setDescription('Overall MMR leaderboard across all summary categories')
+    .addIntegerOption(opt =>
+      opt.setName('page').setDescription('Page number').setMinValue(1)),
+  new SlashCommandBuilder()
     .setName('introwaystoclimbimprove')
     .setDescription('Shows which Intro Ways To Climb challenges a player has no top 100 entry on')
     .addStringOption(opt =>
