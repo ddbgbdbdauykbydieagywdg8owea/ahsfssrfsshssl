@@ -560,7 +560,9 @@ const SPOTLIGHT_LIVE_CHANNEL_ID = '1557517483974590535';
 const SPOTLIGHT_WINNER_CHANNEL_ID = '1557517846580564008';
 const GAUNTLET_CHANNEL_ID = '1559355085111427182';
 const GAUNTLET_WINNER_CHANNEL_ID = '1559355235879751770';
-
+const MMR_LEADERBOARD_CHANNEL_ID = '1573532956419555470';
+const CHALLENGE_FORUM_CHANNEL_ID = '1573535987802443776';
+let mmrMessageId = null;
 const POINTS = [
   0,
   1000,980,960,940,921,902,882,864,845,826,
@@ -887,7 +889,253 @@ async function endSpotlight() {
 
 await startSpotlight();
 }
+function calculateAllMMR() {
+  const permIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => d.type === 'perm').map(([id]) => id);
+  const weeklyIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => d.type === 'kazz_easy' || d.type === 'kazz_hard').map(([id]) => id);
+  const raceIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => {
+    if (d.type !== 'weekly_race') return false;
+    const match = d.name.match(/WeeklyRace(\d+)/i);
+    return match && parseInt(match[1]) >= 22;
+  }).map(([id]) => id);
 
+  const categories = [
+    permIds,
+    weeklyIds,
+    raceIds,
+    ZDRIFT_IDS,
+    BOULDERING_IDS,
+    DRIBBLE_IDS,
+    DRIFTBALL_IDS,
+    CLUB_IDS,
+    PARKOUR_IDS,
+    INTRO_IDS,
+    WAYS_TO_CLIMB_IDS,
+    INTRO_WAYS_TO_CLIMB_IDS,
+  ];
+
+  const mmrMap = {};
+  const MAX_RAW = 13000;
+
+  const ensurePlayer = (userId, name) => {
+    if (!mmrMap[userId]) {
+      mmrMap[userId] = { name, rawScore: 0, mmr: 0, rankedCategories: 0 };
+    }
+  };
+
+  const getCategoryBaseMMR = (rank) => {
+    return 1000 * Math.pow(0.965, rank - 1);
+  };
+
+  // 1. Global Rank Base Score
+  const globalSorted = Object.entries(playerStats)
+    .sort(([, a], [, b]) => b.totalPoints - a.totalPoints);
+
+  globalSorted.forEach(([userId, p], idx) => {
+    const rank = idx + 1;
+    ensurePlayer(userId, p.name);
+    mmrMap[userId].rawScore += getCategoryBaseMMR(rank);
+    mmrMap[userId].rankedCategories++;
+  });
+
+  // 2. All 12 Summary Category Base Scores
+  for (const ids of categories) {
+    const catPlayers = {};
+    for (const id of ids) {
+      const entries = cache[id] || [];
+      for (const entry of entries) {
+        if (entry.rank > 100) continue;
+        const uid = entry.user_id || entry.username;
+        if (!catPlayers[uid]) catPlayers[uid] = { name: entry.username, points: 0 };
+        catPlayers[uid].points += getPoints(entry.rank);
+      }
+    }
+
+    const sortedCat = Object.entries(catPlayers).sort(([, a], [, b]) => b.points - a.points);
+    sortedCat.forEach(([uid, data], idx) => {
+      const rank = idx + 1;
+      ensurePlayer(uid, data.name);
+      mmrMap[uid].rawScore += getCategoryBaseMMR(rank);
+      mmrMap[uid].rankedCategories++;
+    });
+  }
+
+  // 3. Diminishing returns curve (#1 in everything = 7,000 MMR)
+  for (const player of Object.values(mmrMap)) {
+    const ratio = Math.min(1, player.rawScore / MAX_RAW);
+    player.mmr = Math.round(7000 * Math.pow(ratio, 0.72));
+  }
+
+  return Object.values(mmrMap).sort((a, b) => b.mmr - a.mmr);
+}
+
+async function updateMmrChannel() {
+  const channel = client.channels.cache.get(MMR_LEADERBOARD_CHANNEL_ID);
+  if (!channel) return;
+
+  const sorted = calculateAllMMR();
+  if (sorted.length === 0) return;
+
+  const top30 = sorted.slice(0, 30);
+  const lines = top30.map((p, i) =>
+    `#${i + 1} **${p.name}** — **${p.mmr.toLocaleString()} MMR** (${p.rankedCategories}/13 categories)`
+  );
+
+  const embed = new EmbedBuilder()
+    .setTitle('Orion Drift — Overall MMR Leaderboard')
+    .setColor(0x00d2ff)
+    .setDescription(lines.join('\n'))
+    .setFooter({ text: `Top 30 Players • Auto-updates every 10 mins • Last updated: ${new Date().toLocaleTimeString()}` });
+
+  try {
+    if (!mmrMessageId) {
+      const recent = await channel.messages.fetch({ limit: 10 });
+      const existing = recent.find(m => m.author.id === client.user.id && m.embeds[0]?.title === 'Orion Drift — Overall MMR Leaderboard');
+      if (existing) mmrMessageId = existing.id;
+    }
+
+    if (mmrMessageId) {
+      const msg = await channel.messages.fetch(mmrMessageId);
+      await msg.edit({ embeds: [embed] });
+    } else {
+      const msg = await channel.send({ embeds: [embed] });
+      mmrMessageId = msg.id;
+    }
+  } catch (e) {
+    console.error('Failed to update MMR leaderboard channel:', e.message);
+    mmrMessageId = null;
+  }
+}
+async function updateChallengeForum() {
+  const forumChannel = client.channels.cache.get(CHALLENGE_FORUM_CHANNEL_ID);
+  if (!forumChannel) return;
+
+  const globalSorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
+  const globalRankMap = new Map();
+  globalSorted.forEach((p, idx) => {
+    globalRankMap.set(p.name.toLowerCase(), idx + 1);
+  });
+
+  // Fetch ALL active and archived threads directly from Discord (survives redeploys)
+  const allThreads = [];
+  try {
+    const active = await forumChannel.threads.fetchActive();
+    active.threads.forEach(t => allThreads.push(t));
+
+    let hasMore = true;
+    let before = undefined;
+    while (hasMore) {
+      const archived = await forumChannel.threads.fetchArchived({ limit: 100, before });
+      archived.threads.forEach(t => allThreads.push(t));
+      hasMore = archived.hasMore;
+      if (archived.threads.size > 0) {
+        before = archived.threads.last().id;
+      } else {
+        hasMore = false;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to fetch existing forum threads:', e.message);
+  }
+
+  const threadsById = new Map();
+  const threadsByTitle = new Map();
+
+  for (const thread of allThreads) {
+    if (thread.ownerId !== client.user.id) continue;
+    threadsByTitle.set(thread.name.toLowerCase(), thread);
+
+    const starter = await thread.fetchStarterMessage().catch(() => null);
+    const footerText = starter?.embeds?.[0]?.footer?.text || '';
+    const idMatch = footerText.match(/ID:\s*([A-F0-9]{32})/i);
+    if (idMatch) {
+      threadsById.set(idMatch[1].toUpperCase(), { thread, starter });
+    }
+  }
+
+  const allChallengeIds = [...new Set([...Object.keys(CHALLENGE_NAMES), ...Object.keys(cache)])];
+
+  for (const id of allChallengeIds) {
+    const entries = cache[id];
+    if (!entries || entries.length === 0) continue;
+
+    const title = getChallengeName(id).slice(0, 100);
+    const top100 = entries.slice(0, 100);
+
+    const formatLine = (e) => {
+      const gRank = e.username ? globalRankMap.get(e.username.toLowerCase()) : null;
+      const gTag = gRank ? `Global #${gRank}` : 'Unranked';
+      return `#${e.rank} **${e.username}** — ${formatTime(e.record)} (${gTag})`;
+    };
+
+    const part1Lines = top100.slice(0, 50).map(formatLine);
+    const part2Lines = top100.slice(50, 100).map(formatLine);
+
+    const embed1 = new EmbedBuilder()
+      .setTitle(`${title} — Top 100 Leaderboard (1–50)`)
+      .setColor(0x5865f2)
+      .setDescription(part1Lines.join('\n').slice(0, 4096))
+      .setFooter({ text: `ID: ${id} • Updates every 10 mins • ${new Date().toLocaleTimeString()}` });
+
+    const embed2 = part2Lines.length > 0
+      ? new EmbedBuilder()
+          .setTitle(`${title} — Top 100 Leaderboard (51–100)`)
+          .setColor(0x5865f2)
+          .setDescription(part2Lines.join('\n').slice(0, 4096))
+          .setFooter({ text: `ID: ${id} • Showing ${top100.length} entries` })
+      : null;
+
+    try {
+      const matched = threadsById.get(id.toUpperCase());
+      let thread = matched?.thread || threadsByTitle.get(title.toLowerCase());
+      let starterMsg = matched?.starter || null;
+
+      // Create post only if it does not already exist in Discord
+      if (!thread) {
+        thread = await forumChannel.threads.create({
+          name: title,
+          message: { embeds: [embed1] },
+        });
+        if (embed2) {
+          await thread.send({ embeds: [embed2] });
+        }
+        await new Promise(r => setTimeout(r, 1200));
+        continue;
+      }
+
+      if (thread.archived) {
+        await thread.setArchived(false).catch(() => {});
+      }
+
+      if (thread.name !== title) {
+        await thread.setName(title).catch(() => {});
+      }
+
+      if (!starterMsg) {
+        starterMsg = await thread.fetchStarterMessage().catch(() => null);
+      }
+      if (starterMsg) {
+        await starterMsg.edit({ embeds: [embed1] });
+      }
+
+      const threadMsgs = await thread.messages.fetch({ limit: 10 });
+      const msg2 = threadMsgs.find(m => m.author.id === client.user.id && m.id !== starterMsg?.id);
+
+      if (embed2) {
+        if (msg2) {
+          await msg2.edit({ embeds: [embed2] });
+        } else {
+          await thread.send({ embeds: [embed2] });
+        }
+      } else if (msg2) {
+        await msg2.delete().catch(() => {});
+      }
+    } catch (e) {
+      console.error(`Failed to update forum thread for ${title} (${id}):`, e.message);
+    }
+
+    await new Promise(r => setTimeout(r, 600));
+  }
+}
 async function buildCache() {
   console.log(`Fetching ${CHALLENGE_IDS.length} challenges...`);
   if (Object.keys(previousCache).length === 0 && fs.existsSync(CACHE_FILE)) {
@@ -965,7 +1213,8 @@ async function buildCache() {
   logToChannel(`Cache refreshed — ${Object.keys(cache).length} challenges | ${Object.keys(playerStats).length} players | ${new Date().toLocaleTimeString()}`);
 if (spotlightChallenge) await updateSpotlightMessage();
 await checkGauntlet();
-
+await updateMmrChannel();
+  await updateChallengeForum();
 // Update bot status channel name
 try {
   const statusChannel = client.channels.cache.get(BOT_STATUS_CHANNEL_ID);
@@ -1138,7 +1387,30 @@ if (commandName === 'findbywr') {
       await interaction.followUp({ embeds: [followEmbed] });
     }
   }
+else if (commandName === 'mmrleaderboard') {
+    await interaction.deferReply();
+    const page = interaction.options.getInteger('page') || 1;
+    const perPage = 30;
 
+    const sorted = calculateAllMMR();
+    const totalPages = Math.ceil(sorted.length / perPage);
+    const slice = sorted.slice((page - 1) * perPage, page * perPage);
+
+    if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
+
+    const lines = slice.map((p, i) => {
+      const rank = (page - 1) * perPage + i + 1;
+      return `#${rank} **${p.name}** — **${p.mmr.toLocaleString()} MMR** (${p.rankedCategories}/13 categories)`;
+    });
+
+    const embed = new EmbedBuilder()
+      .setTitle('Orion Drift — Overall MMR Leaderboard')
+      .setColor(0x00d2ff)
+      .setDescription(lines.join('\n'))
+      .setFooter({ text: `Page ${page}/${totalPages} • Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+
+    return interaction.editReply({ embeds: [embed] });
+  }
   else if (commandName === 'challenge') {
     await interaction.deferReply();
     const id = interaction.options.getString('id').toUpperCase();
