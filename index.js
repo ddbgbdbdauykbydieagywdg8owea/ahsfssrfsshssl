@@ -1123,7 +1123,7 @@ async function startMiniCup(previousCupNumber = 0) {
   const boulderingPicks = pickRandomUnique(BOULDERING_IDS, usedIds, 8);
   boulderingPicks.forEach(id => usedIds.add(id));
 
-  // Safeguard: Ensure Intro, Ways to Climb, and Bouldering IDs cannot be picked by other categories
+  // Safeguard: Prevent Intro, Ways to Climb, and Bouldering from appearing in other categories
   INTRO_IDS.forEach(id => usedIds.add(id));
   WAYS_TO_CLIMB_IDS.forEach(id => usedIds.add(id));
   BOULDERING_IDS.forEach(id => usedIds.add(id));
@@ -1140,37 +1140,20 @@ async function startMiniCup(previousCupNumber = 0) {
   const zdriftPicks = pickRandomUnique(ZDRIFT_IDS, usedIds, 9);
   zdriftPicks.forEach(id => usedIds.add(id));
 
-  const cupStartTime = Date.now();
-
   const buildChallengeObj = (id, category) => {
     const entries = cache[id] || [];
     const fourth = entries.find(e => e.rank === 4);
     const seventh = entries.find(e => e.rank === 7);
-    
-    if (!fourth || !seventh) {
-      return { id, category, target: 0, snapshot: {} };
-    }
-
     const target = roundUpToNearest005(fourth.record + (seventh.record - fourth.record) * 0.65);
 
-    const snapshot = {};
+    const initialSnapshot = {};
     for (const entry of entries) {
-      // Check multiple common property names for timestamps to prevent undefined values
-      const entryTime = entry.timestamp || entry.createdAt || entry.date || 0;
-
-      const beatTarget = entry.record <= target;
-      // Ensure the time was set strictly AFTER the Mega Cup started
-      const isAfterStart = entryTime >= cupStartTime;
-
-      if (entry.username && beatTarget && isAfterStart) {
-        snapshot[entry.username] = entry.record;
+      if (entry.username) {
+        initialSnapshot[entry.username] = entry.record;
       }
     }
 
-    return { id, category, target, snapshot };
-  };
-
-    return { id, category, target, snapshot };
+    return { id, category, target, initialSnapshot, clears: {} };
   };
 
   const challenges = [
@@ -1190,7 +1173,6 @@ async function startMiniCup(previousCupNumber = 0) {
 
   miniCupState = {
     cupNumber: previousCupNumber + 1,
-    startTime: cupStartTime,
     challenges,
   };
 
@@ -1277,8 +1259,8 @@ const DIVISIONS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII']; // I = low
 
 const FIXED_TOP_TIERS = [
   { name: 'Immortal',    color: 0xffffff, minRank: 1,   maxRank: 1 },   // #1 Only
-  { name: 'Sovereign',   color: 0xff0055, minRank: 2,   maxRank: 3 },   // #2–#3
-  { name: 'Mythic',      color: 0xff4500, minRank: 4,   maxRank: 6 },   // #4–#6
+  { name: 'Unreal',   color: 0xff0055, minRank: 2,   maxRank: 3 },   // #2–#3
+  { name: 'Superior',      color: 0xff4500, minRank: 4,   maxRank: 6 },   // #4–#6
   { name: 'Apex',        color: 0xffd700, minRank: 7,   maxRank: 11 },  // 5 slots
   { name: 'Legend',      color: 0xff2a85, minRank: 12,  maxRank: 18 },  // 7 slots
   { name: 'Grandmaster', color: 0xe74c3c, minRank: 19,  maxRank: 28 },  // 10 slots
