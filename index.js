@@ -740,7 +740,73 @@ async function checkAlerts(newCache) {
     }
   }
 }
+// --- 1. SAVE CUP STATE TO STAFF CHANNEL ---
+async function saveCupStateToStaffChannel(state) {
+  const staffChannel = client.channels.cache.get(CHANGER_CHANNEL_ID);
+  if (!staffChannel) return;
 
+  const encodedState = Buffer.from(JSON.stringify(state)).toString('base64');
+  
+  // Split into chunks of 1900 characters to stay safely under Discord's 2000 limit
+  const chunks = encodedState.match(/.{1,1900}/g) || [];
+
+  try {
+    // Delete old staff state messages first so chat doesn't get cluttered
+    const recent = await staffChannel.messages.fetch({ limit: 10 });
+    const oldMsgs = recent.filter(m => m.author.id === client.user.id && m.content.startsWith('CUPSTATE_CHUNK:'));
+    for (const [, msg] of oldMsgs) {
+      await msg.delete().catch(() => {});
+    }
+
+    // Send each chunk as a separate message in the staff channel
+    for (let i = 0; i < chunks.length; i++) {
+      await staffChannel.send(`CUPSTATE_CHUNK:${i + 1}/${chunks.length}:${chunks[i]}`);
+    }
+  } catch (e) {
+    console.error('Failed to save cup state to staff channel:', e.message);
+  }
+}
+
+// --- 2. RESTORE CUP STATE FROM STAFF CHANNEL ---
+async function restoreMiniCupFromStaffChannel() {
+  const staffChannel = client.channels.cache.get(CHANGER_CHANNEL_ID);
+  if (!staffChannel) return false;
+
+  try {
+    const recent = await staffChannel.messages.fetch({ limit: 20 });
+    const chunkMsgs = recent.filter(m => m.author.id === client.user.id && m.content.startsWith('CUPSTATE_CHUNK:'));
+
+    if (chunkMsgs.size === 0) return false;
+
+    // Sort chunks to ensure correct order (e.g. 1/2, 2/2)
+    const sortedChunks = Array.from(chunkMsgs.values()).sort((a, b) => {
+      const aNum = parseInt(a.content.split(':')[1].split('/')[0]);
+      const bNum = parseInt(b.content.split(':')[1].split('/')[0]);
+      return aNum - bNum;
+    });
+
+    // Reassemble the Base64 string from the chunks
+    let fullEncoded = '';
+    for (const msg of sortedChunks) {
+      const parts = msg.content.split(':');
+      if (parts.length >= 3) {
+        fullEncoded += parts.slice(2).join(':');
+      }
+    }
+
+    const decoded = JSON.parse(Buffer.from(fullEncoded, 'base64').toString('utf8'));
+    if (!decoded || !Array.isArray(decoded.challenges) || decoded.challenges.length !== 8) {
+      return false;
+    }
+
+    miniCupState = decoded;
+    console.log(`Restored Mini Cup #${miniCupState.cupNumber} from staff channel chunks after restart.`);
+    return true;
+  } catch (e) {
+    console.error('Failed to restore Mini Cup from staff channel:', e.message);
+    return false;
+  }
+}
 async function logToChannel(message) {
   const logChannel = client.channels.cache.get(BOT_LOG_CHANNEL_ID);
   if (logChannel) logChannel.send(message).catch(console.error);
@@ -1069,6 +1135,9 @@ async function startMiniCup(previousCupNumber = 0) {
     cupNumber: previousCupNumber + 1,
     challenges,
   };
+
+  // 🔴 PLACE IT RIGHT HERE: Save state to staff channel immediately
+  await saveCupStateToStaffChannel(miniCupState);
 
   const { mainEmbed } = buildMiniCupEmbed(miniCupState);
 
@@ -1723,12 +1792,24 @@ const client = new Client({
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}`);
   logToChannel(`Bot started — logged in as ${client.user.tag}`);
+  
   await buildCache();
   setInterval(buildCache, 2 * 60 * 1000);
+  
   // Start spotlight after first cache build is fully done
   await startSpotlight();
-  await startGauntlet();
   setInterval(endSpotlight, 3 * 60 * 60 * 1000);
+
+  // --- MINI CUP RESTORATION & STARTUP ---
+  const restored = await restoreMiniCupFromStaffChannel();
+  if (!restored) {
+    // If no saved chunks exist in the staff channel, start a fresh Cup #0 (which becomes Cup #1)
+    await startMiniCup(0);
+  } else {
+    // Optional: If you want to make sure the public embed is refreshed/sent upon reboot
+    await updateMiniCup();
+  }
+  // -------------------------------------
 });
 
 client.on('interactionCreate', async interaction => {
