@@ -265,6 +265,23 @@ const commands = [
     .addIntegerOption(opt =>
       opt.setName('page').setDescription('Page number').setMinValue(1)),
   new SlashCommandBuilder()
+  .setName('time')
+  .setDescription("Check a player's time, rank, and points on a specific challenge")
+  .addStringOption(option =>
+    option
+      .setName('name')
+      .setDescription('Player name')
+      .setRequired(true)
+      .setAutocomplete(true)
+  )
+  .addStringOption(option =>
+    option
+      .setName('challenge')
+      .setDescription('Challenge name')
+      .setRequired(true)
+      .setAutocomplete(true)
+  ),
+  new SlashCommandBuilder()
     .setName('introwaystoclimbimprove')
     .setDescription('Shows which Intro Ways To Climb challenges a player has no top 100 entry on')
     .addStringOption(opt =>
