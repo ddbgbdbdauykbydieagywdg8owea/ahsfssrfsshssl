@@ -37,6 +37,22 @@ const BOULDERING_IDS = [
   '0B1D82C54ECC22006D97D5B33C03C541',
 ];
 
+const NODRIBBLE_DRIFTBALL_IDS = [
+  '8AD31D5445BDD4792A058594A3CB7F90',
+  '965FDE1D4EB0A675BE7152B6429EFD06',
+  'C1601B6A428D4CF7D666218015A31614',
+  '57E20B32495E04E32EFE90AEB93EACE4',
+  '283A0902453BCB1C0870008DC6BA260C',
+  '416A4BB149C044B416EDD8ABAFAB2872',
+  'AB3538D24AE7C24DF16C08B62666AB3F',
+  '2E0E97A44C892A5E712972949C307923',
+  '4B862BC843B33EFB5993FAB49285E8F8',
+  'E488A75B4737DB3F79EE55986BB01730',
+  '3998593B4424CA838F965190E89EBE98',
+  'C645CFC741F190CE86F604A889478ACB',
+  'EE63EEAC4CD609435BCCEBB9D4D3E0BC',
+];
+
 const DRIBBLE_IDS = [
 'B79530434F270B14D12FD7BDBBB27D76',
 'A8C8A24E4261BBE91687CE8EA614B97B',
@@ -1098,10 +1114,13 @@ async function startMiniCup(previousCupNumber = 0) {
 
   const usedIds = new Set(miniCupState ? miniCupState.challenges.map(c => c.id) : []);
 
-  const parkourPicks = pickRandomUnique(PARKOUR_IDS, usedIds, 2);
-  const clubPicks = pickRandomUnique(CLUB_IDS, usedIds, 2);
-  const boulderingPicks = pickRandomUnique(BOULDERING_IDS, usedIds, 2);
-  const zdriftPicks = pickRandomUnique(ZDRIFT_IDS, usedIds, 2);
+  const waysToClimbPicks = pickRandomUnique(WAYS_TO_CLIMB_IDS, usedIds, 1);
+  const introPicks = pickRandomUnique(INTRO_IDS, usedIds, 1);
+  const parkourPicks = pickRandomUnique(PARKOUR_IDS, usedIds, 5);
+  const clubPicks = pickRandomUnique(CLUB_IDS, usedIds, 5);
+  const nodribblePicks = pickRandomUnique(NODRIBBLE_DRIFTBALL_IDS, usedIds, 5);
+  const boulderingPicks = pickRandomUnique(BOULDERING_IDS, usedIds, 5);
+  const zdriftPicks = pickRandomUnique(ZDRIFT_IDS, usedIds, 5);
 
   const buildChallengeObj = (id, category) => {
     const entries = cache[id] || [];
@@ -1120,13 +1139,16 @@ async function startMiniCup(previousCupNumber = 0) {
   };
 
   const challenges = [
+    ...waysToClimbPicks.map(id => buildChallengeObj(id, 'Ways to Climb')),
+    ...introPicks.map(id => buildChallengeObj(id, 'Intro')),
     ...parkourPicks.map(id => buildChallengeObj(id, 'Parkour')),
     ...clubPicks.map(id => buildChallengeObj(id, 'Club')),
+    ...nodribblePicks.map(id => buildChallengeObj(id, 'Driftball (No Dribble)')),
     ...boulderingPicks.map(id => buildChallengeObj(id, 'Bouldering')),
     ...zdriftPicks.map(id => buildChallengeObj(id, 'ZDrift')),
   ];
 
-  if (challenges.length < 8) {
+  if (challenges.length < 27) {
     console.error('Not enough eligible challenges to start Mini Cup.');
     return;
   }
@@ -1136,7 +1158,6 @@ async function startMiniCup(previousCupNumber = 0) {
     challenges,
   };
 
-  //  PLACE IT RIGHT HERE: Save state to staff channel immediately
   await saveCupStateToStaffChannel(miniCupState);
 
   const { mainEmbed } = buildMiniCupEmbed(miniCupState);
