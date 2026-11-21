@@ -563,6 +563,7 @@ const GAUNTLET_WINNER_CHANNEL_ID = '1559355235879751770';
 const MMR_LEADERBOARD_CHANNEL_ID = '1573532956419555470';
 const CHALLENGE_FORUM_CHANNEL_ID = '1573535987802443776';
 let mmrMessageId = null;
+let mmrThresholdsMessageId = null;
 const POINTS = [
   0,
   1000,980,960,940,921,902,882,864,845,826,
@@ -1056,11 +1057,78 @@ function calculateAllMMR() {
   return sorted;
 }
 
+function buildRankThresholdsEmbed(sorted) {
+  const totalPlayers = sorted.length;
+  const remainingPlayers = Math.max(1, totalPlayers - 300);
+
+  const getMmrAt = (idx) => {
+    if (sorted.length === 0) return '0';
+    const safeIdx = Math.min(Math.max(0, idx), sorted.length - 1);
+    return `${sorted[safeIdx].mmr.toLocaleString()} MMR`;
+  };
+
+  // Top 300 fixed slot ranges
+  const fixedRows = FIXED_TOP_TIERS.map(t => {
+    const minMmr = getMmrAt(t.maxRank - 1);
+    const maxMmr = getMmrAt(t.minRank - 1);
+    const rangeStr = t.minRank === 1
+      ? `${minMmr}+`
+      : `${minMmr} – ${maxMmr}`;
+    return `**${t.name}** (#${t.minRank}–#${t.maxRank}): **${rangeStr}**`;
+  });
+
+  // #301+ percentile ranges
+  const lowerRows = LOWER_PERCENTILE_TIERS.map(t => {
+    const startRank = 301 + Math.floor(t.minPct * remainingPlayers);
+    const endRank = Math.min(totalPlayers, 300 + Math.ceil(t.maxPct * remainingPlayers));
+    if (startRank > totalPlayers) {
+      return `**${t.name}** (Top ${Math.round(t.maxPct * 100)}% below #300): *Not yet filled*`;
+    }
+    const minMmr = getMmrAt(endRank - 1);
+    const maxMmr = getMmrAt(startRank - 1);
+    const pctLabel = t.name === 'Silver'
+      ? 'Top 13% below #300'
+      : t.name === 'Bronze'
+        ? '13%–42% below #300'
+        : 'Bottom 58% below #300';
+    return `**${t.name}** (#${startRank}–#${endRank} • ${pctLabel}): **${minMmr} – ${maxMmr}**`;
+  });
+
+  // Division breakdown inside Top 300 (V = highest in tier, I = lowest in tier)
+  const divLines = FIXED_TOP_TIERS.map(t => {
+    const tierSize = t.maxRank - t.minRank + 1;
+    const perDiv = tierSize / 5;
+    const divs = ['V', 'IV', 'III', 'II', 'I'].map((div, i) => {
+      const rStart = Math.round(t.minRank + i * perDiv);
+      const rEnd = Math.round(t.minRank + (i + 1) * perDiv - 1);
+      const cutoff = getMmrAt(rEnd - 1);
+      return `${div}: ${cutoff}`;
+    });
+    return `**${t.name}:** ${divs.join(' | ')}`;
+  });
+
+  return new EmbedBuilder()
+    .setTitle('Orion Drift — Current Rank MMR Thresholds')
+    .setColor(0xf5a623)
+    .setDescription([
+      'Ranks are dynamic and update every 10 minutes based on live MMR standings.',
+      '',
+      '__**Tier Cutoffs**__',
+      ...fixedRows,
+      ...lowerRows,
+      '**Unranked:** 0 MMR (no Top 100 times)',
+      '',
+      '__**Top 300 Division Cutoffs (Minimum MMR for Division)**__',
+      ...divLines,
+    ].join('\n'))
+    .setFooter({ text: `Total Ranked Players: ${totalPlayers.toLocaleString()} • Updates every 10 mins` });
+}
+
 async function updateMmrChannel() {
   const channel = client.channels.cache.get(MMR_LEADERBOARD_CHANNEL_ID);
   if (!channel) return;
 
-const sorted = calculateAllMMR();
+  const sorted = calculateAllMMR();
   if (sorted.length === 0) return;
 
   const top30 = sorted.slice(0, 30);
@@ -1068,32 +1136,48 @@ const sorted = calculateAllMMR();
     `#${i + 1} ${formatPlayer(p.name)} — **${p.mmr.toLocaleString()} MMR** (${p.rankedCategories}/13 categories)`
   );
 
-  const embed = new EmbedBuilder()
+  const leaderboardEmbed = new EmbedBuilder()
     .setTitle('Orion Drift — Overall MMR Leaderboard')
     .setColor(0x00d2ff)
     .setDescription(lines.join('\n'))
     .setFooter({ text: `Top 30 Players • Auto-updates every 10 mins • Last updated: ${new Date().toLocaleTimeString()}` });
 
+  const thresholdsEmbed = buildRankThresholdsEmbed(sorted);
+
   try {
-    if (!mmrMessageId) {
-      const recent = await channel.messages.fetch({ limit: 10 });
-      const existing = recent.find(m => m.author.id === client.user.id && m.embeds[0]?.title === 'Orion Drift — Overall MMR Leaderboard');
-      if (existing) mmrMessageId = existing.id;
+    if (!mmrMessageId || !mmrThresholdsMessageId) {
+      const recent = await channel.messages.fetch({ limit: 15 });
+      const existingLb = recent.find(
+        m => m.author.id === client.user.id && m.embeds[0]?.title === 'Orion Drift — Overall MMR Leaderboard'
+      );
+      const existingThresh = recent.find(
+        m => m.author.id === client.user.id && m.embeds[0]?.title === 'Orion Drift — Current Rank MMR Thresholds'
+      );
+      if (existingLb) mmrMessageId = existingLb.id;
+      if (existingThresh) mmrThresholdsMessageId = existingThresh.id;
     }
 
     if (mmrMessageId) {
       const msg = await channel.messages.fetch(mmrMessageId);
-      await msg.edit({ embeds: [embed] });
+      await msg.edit({ embeds: [leaderboardEmbed] });
     } else {
-      const msg = await channel.send({ embeds: [embed] });
+      const msg = await channel.send({ embeds: [leaderboardEmbed] });
       mmrMessageId = msg.id;
+    }
+
+    if (mmrThresholdsMessageId) {
+      const msg = await channel.messages.fetch(mmrThresholdsMessageId);
+      await msg.edit({ embeds: [thresholdsEmbed] });
+    } else {
+      const msg = await channel.send({ embeds: [thresholdsEmbed] });
+      mmrThresholdsMessageId = msg.id;
     }
   } catch (e) {
     console.error('Failed to update MMR leaderboard channel:', e.message);
     mmrMessageId = null;
+    mmrThresholdsMessageId = null;
   }
 }
-
 async function updateChallengeForum() {
   const forumChannel = client.channels.cache.get(CHALLENGE_FORUM_CHANNEL_ID);
   if (!forumChannel) return;
