@@ -1114,31 +1114,31 @@ async function startMiniCup(previousCupNumber = 0) {
 
   const usedIds = new Set(miniCupState ? miniCupState.challenges.map(c => c.id) : []);
 
-  const introPicks = pickRandomUnique(INTRO_IDS, usedIds, 1);
+  const introPicks = pickRandomUnique(INTRO_IDS, usedIds, 2);
   introPicks.forEach(id => usedIds.add(id));
 
-  const waysToClimbPicks = pickRandomUnique(WAYS_TO_CLIMB_IDS, usedIds, 1);
+  const waysToClimbPicks = pickRandomUnique(WAYS_TO_CLIMB_IDS, usedIds, 2);
   waysToClimbPicks.forEach(id => usedIds.add(id));
 
-  // Safeguard: Add ALL intro and ways to climb IDs to usedIds 
-  // so Parkour, Club, and other pools can never touch them.
+  const boulderingPicks = pickRandomUnique(BOULDERING_IDS, usedIds, 8);
+  boulderingPicks.forEach(id => usedIds.add(id));
+
+  // Safeguard: Ensure Intro, Ways to Climb, and Bouldering IDs cannot be picked by other categories
   INTRO_IDS.forEach(id => usedIds.add(id));
   WAYS_TO_CLIMB_IDS.forEach(id => usedIds.add(id));
+  BOULDERING_IDS.forEach(id => usedIds.add(id));
 
-  const nodribblePicks = pickRandomUnique(NODRIBBLE_DRIFTBALL_IDS, usedIds, 5);
+  const nodribblePicks = pickRandomUnique(NODRIBBLE_DRIFTBALL_IDS, usedIds, 10);
   nodribblePicks.forEach(id => usedIds.add(id));
 
-  const parkourPicks = pickRandomUnique(PARKOUR_IDS, usedIds, 5);
+  const parkourPicks = pickRandomUnique(PARKOUR_IDS, usedIds, 10);
   parkourPicks.forEach(id => usedIds.add(id));
 
-  const clubPicks = pickRandomUnique(CLUB_IDS, usedIds, 5);
+  const clubPicks = pickRandomUnique(CLUB_IDS, usedIds, 9);
   clubPicks.forEach(id => usedIds.add(id));
 
-  const zdriftPicks = pickRandomUnique(ZDRIFT_IDS, usedIds, 5);
+  const zdriftPicks = pickRandomUnique(ZDRIFT_IDS, usedIds, 9);
   zdriftPicks.forEach(id => usedIds.add(id));
-
-  const boulderingPicks = pickRandomUnique(BOULDERING_IDS, usedIds, 5);
-  boulderingPicks.forEach(id => usedIds.add(id));
 
   const cupStartTime = Date.now();
 
@@ -1168,8 +1168,8 @@ async function startMiniCup(previousCupNumber = 0) {
     ...boulderingPicks.map(id => buildChallengeObj(id, 'Bouldering')),
   ];
 
-  if (challenges.length < 27) {
-    console.error('Not enough eligible challenges to start Mini Cup.');
+  if (challenges.length < 50) {
+    console.error('Not enough eligible challenges to start Mega Cup (requires 50).');
     return;
   }
 
@@ -1187,7 +1187,7 @@ async function startMiniCup(previousCupNumber = 0) {
     const sent = await channel.send({ embeds: [mainEmbed] });
     miniCupMessageId = sent.id;
   } catch (e) {
-    console.error('Failed to post Mini Cup:', e.message);
+    console.error('Failed to post Mega Cup:', e.message);
   }
 }
 
@@ -1206,18 +1206,19 @@ function buildMiniCupEmbed(state) {
     for (const c of challenges) {
       const clearsCount = Object.keys(c.snapshot || {}).length;
       
-      // Look up the human-readable name using your CHALLENGE_NAMES object
+      // Look up human-readable name from CHALLENGE_NAMES
       const challengeInfo = CHALLENGE_NAMES[c.id];
       const displayName = challengeInfo ? challengeInfo.name : `Challenge ${c.id}`;
 
-      // Plain text formatting using the map name instead of the hex ID
+      // Plain text formatting with zero bullet points or hex IDs
       challengeSections.push(`${displayName} — Target: ${formatTime(c.target)} (${clearsCount} clears)`);
     }
-    challengeSections.push(''); // spacing between category sections
+    challengeSections.push(''); // Spacing between category sections
   }
 
   const playerClears = {};
-  const totalChallenges = state.challenges.length;
+  const totalChallenges = state.challenges.length; // 50
+  const requiredClears = 40;
 
   for (const c of state.challenges) {
     for (const username of Object.keys(c.snapshot || {})) {
@@ -1226,34 +1227,34 @@ function buildMiniCupEmbed(state) {
   }
 
   const winners = Object.entries(playerClears)
-    .filter(([_, count]) => count === totalChallenges)
+    .filter(([_, count]) => count >= requiredClears)
     .map(([username]) => username);
 
   const standingsLines = [];
   if (winners.length > 0) {
-    standingsLines.push(`**Winner:** ${winners.join(', ')} — Cup Won!`);
+    standingsLines.push(`**Winner:** ${winners.join(', ')} — Mega Cup Won!`);
   } else {
     const sorted = Object.entries(playerClears).sort((a, b) => b[1] - a[1]);
     if (sorted.length === 0) {
-      standingsLines.push('No targets beaten yet — beat all targets (new/improved PBs) to win the Cup!');
+      standingsLines.push(`No targets beaten yet — beat any ${requiredClears} of the ${totalChallenges} targets to win!`);
     } else {
       for (const [user, count] of sorted.slice(0, 5)) {
-        standingsLines.push(`${user}: ${count}/${totalChallenges} cleared`);
+        standingsLines.push(`${user}: ${count}/${requiredClears} cleared`);
       }
     }
   }
 
   const mainEmbed = new EmbedBuilder()
-    .setTitle(`Orion Drift Mini Cup #${state.cupNumber} (${totalChallenges} Challenges)`)
+    .setTitle(`Orion Drift Mega Cup #${state.cupNumber} (${totalChallenges} Challenges)`)
     .setColor(0x9b59b6)
     .setDescription([
-      `First player to beat the Gauntlet-difficulty target on all **${totalChallenges} challenges** (new or improved PBs only) wins and starts the next Cup!`,
+      `First player to beat the Gauntlet-difficulty target on **any ${requiredClears} of the ${totalChallenges} challenges** (new or improved PBs only) wins and starts the next Cup!`,
       '',
       ...challengeSections,
-      '**__Live Cup Standings__**',
+      '**__Live Mega Cup Standings__**',
       ...standingsLines,
     ].join('\n').slice(0, 4096))
-    .setFooter({ text: `Cup #${state.cupNumber} • Updates every 2 mins` });
+    .setFooter({ text: `Mega Cup #${state.cupNumber} • Updates every 2 mins` });
 
   return { mainEmbed, standings: playerClears };
 }
