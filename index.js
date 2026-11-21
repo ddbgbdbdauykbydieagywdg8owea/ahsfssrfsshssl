@@ -889,6 +889,80 @@ async function endSpotlight() {
 
 await startSpotlight();
 }
+const DIVISIONS = ['I', 'II', 'III', 'IV', 'V']; // I = lowest in tier, V = highest in tier
+
+const FIXED_TOP_TIERS = [
+  { name: 'Apex',        color: 0xffd700, minRank: 1,   maxRank: 5 },
+  { name: 'Grandmaster', color: 0xe74c3c, minRank: 6,   maxRank: 15 },
+  { name: 'Master',      color: 0x9b59b6, minRank: 16,  maxRank: 35 },
+  { name: 'Diamond',     color: 0x00d2ff, minRank: 36,  maxRank: 85 },
+  { name: 'Platinum',    color: 0x1abc9c, minRank: 86,  maxRank: 170 },
+  { name: 'Gold',        color: 0xf1c40f, minRank: 171, maxRank: 300 },
+];
+
+const LOWER_PERCENTILE_TIERS = [
+  { name: 'Silver', color: 0xbdc3c7, minPct: 0.00, maxPct: 0.13 },
+  { name: 'Bronze', color: 0xcd7f32, minPct: 0.13, maxPct: 0.42 },
+  { name: 'Scrap',  color: 0x7f8c8d, minPct: 0.42, maxPct: 1.01 },
+];
+
+let playerRankMap = new Map();
+
+function getPlayerRankInfo(name) {
+  if (!name) return { fullRank: 'Unranked', tierName: 'Unranked', division: '', color: 0x95a5a6, mmr: 0, mmrRank: null };
+  return playerRankMap.get(name.toLowerCase()) || { fullRank: 'Unranked', tierName: 'Unranked', division: '', color: 0x95a5a6, mmr: 0, mmrRank: null };
+}
+
+function formatPlayer(name) {
+  if (!name) return 'Unknown';
+  const info = getPlayerRankInfo(name);
+  return `**${name}** [${info.fullRank}]`;
+}
+
+function getDivisionFromProgress(progress) {
+  const clamped = Math.min(0.9999, Math.max(0, progress));
+  const index = Math.floor(clamped * 5);
+  return DIVISIONS[index];
+}
+
+function assignDynamicRank(mmr, rankIndex, totalPlayers) {
+  if (mmr <= 0 || totalPlayers === 0) {
+    return { tierName: 'Unranked', division: '', fullRank: 'Unranked', color: 0x95a5a6 };
+  }
+
+  const rank = rankIndex + 1;
+
+  const topTier = FIXED_TOP_TIERS.find(t => rank >= t.minRank && rank <= t.maxRank);
+  if (topTier) {
+    const tierSize = topTier.maxRank - topTier.minRank + 1;
+    const posFromBottom = topTier.maxRank - rank;
+    const progress = (posFromBottom + 0.5) / tierSize;
+    const div = getDivisionFromProgress(progress);
+
+    return {
+      tierName: topTier.name,
+      division: div,
+      fullRank: `${topTier.name} ${div}`,
+      color: topTier.color,
+    };
+  }
+
+  const remainingPlayers = Math.max(1, totalPlayers - 300);
+  const pct = (rank - 301) / remainingPlayers;
+  const lowerTier = LOWER_PERCENTILE_TIERS.find(t => pct >= t.minPct && pct < t.maxPct)
+    || LOWER_PERCENTILE_TIERS[LOWER_PERCENTILE_TIERS.length - 1];
+
+  const tierSpan = lowerTier.maxPct - lowerTier.minPct;
+  const progress = 1 - ((pct - lowerTier.minPct) / tierSpan);
+  const div = getDivisionFromProgress(progress);
+
+  return {
+    tierName: lowerTier.name,
+    division: div,
+    fullRank: `${lowerTier.name} ${div}`,
+    color: lowerTier.color,
+  };
+}
 function calculateAllMMR() {
   const permIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => d.type === 'perm').map(([id]) => id);
   const weeklyIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => d.type === 'kazz_easy' || d.type === 'kazz_hard').map(([id]) => id);
@@ -965,7 +1039,21 @@ function calculateAllMMR() {
     player.mmr = Math.round(7000 * Math.pow(ratio, 0.72));
   }
 
-  return Object.values(mmrMap).sort((a, b) => b.mmr - a.mmr);
+  const sorted = Object.values(mmrMap).sort((a, b) => b.mmr - a.mmr);
+  const totalPlayers = sorted.length;
+
+  const newRankMap = new Map();
+  sorted.forEach((player, idx) => {
+    player.rankInfo = assignDynamicRank(player.mmr, idx, totalPlayers);
+    newRankMap.set(player.name.toLowerCase(), {
+      ...player.rankInfo,
+      mmr: player.mmr,
+      mmrRank: idx + 1,
+    });
+  });
+
+  playerRankMap = newRankMap;
+  return sorted;
 }
 
 async function updateMmrChannel() {
@@ -1057,7 +1145,16 @@ async function updateChallengeForum() {
   for (const id of allChallengeIds) {
     const entries = cache[id];
     if (!entries || entries.length === 0) continue;
-
+// Check if this challenge's top 100 actually changed since the last refresh
+    const prevEntries = previousCache[id];
+    const hasChanged =
+      !prevEntries ||
+      prevEntries.length !== entries.length ||
+      entries.some((e, idx) =>
+        e.username !== prevEntries[idx]?.username ||
+        e.record !== prevEntries[idx]?.record ||
+        e.rank !== prevEntries[idx]?.rank
+      );
     const title = getChallengeName(id).slice(0, 100);
     const top100 = entries.slice(0, 100);
 
@@ -1089,7 +1186,7 @@ async function updateChallengeForum() {
       let thread = matched?.thread || threadsByTitle.get(title.toLowerCase());
       let starterMsg = matched?.starter || null;
 
-      // Create post only if it does not already exist in Discord
+// Create post only if it does not already exist in Discord
       if (!thread) {
         thread = await forumChannel.threads.create({
           name: title,
@@ -1101,6 +1198,9 @@ async function updateChallengeForum() {
         await new Promise(r => setTimeout(r, 1200));
         continue;
       }
+
+      // Skip Discord API edit calls if nothing on this challenge changed
+      if (!hasChanged) continue;
 
       if (thread.archived) {
         await thread.setArchived(false).catch(() => {});
@@ -1146,38 +1246,53 @@ async function buildCache() {
       console.error('Failed to load cache file:', e.message);
     }
   } else {
-    previousCache = { ...cache };
+    previousCache = JSON.parse(JSON.stringify(cache));
   }
-  cache = {};
+
+  const ALL_IDS = [...new Set([
+    ...CHALLENGE_IDS,
+    ...ZDRIFT_IDS,
+    ...BOULDERING_IDS,
+    ...DRIBBLE_IDS,
+    ...DRIFTBALL_IDS,
+    ...CLUB_IDS,
+    ...PARKOUR_IDS,
+    ...INTRO_IDS,
+    ...WAYS_TO_CLIMB_IDS,
+    ...INTRO_WAYS_TO_CLIMB_IDS,
+  ])];
+
+  const BATCH_SIZE = 8; // Fetches 8 challenges at once
+  for (let i = 0; i < ALL_IDS.length; i += BATCH_SIZE) {
+    const batch = ALL_IDS.slice(i, i + BATCH_SIZE);
+
+    await Promise.all(
+      batch.map(async (id) => {
+        const data = await fetchChallenge(id);
+        if (data && Array.isArray(data.top)) {
+          cache[id] = data.top;
+        } else {
+          logToChannel(`Failed to fetch challenge \`${getChallengeName(id)}\` (\`${id}\`)`);
+        }
+      })
+    );
+
+    const fetchedCount = Math.min(i + BATCH_SIZE, ALL_IDS.length);
+    if (fetchedCount % 40 < BATCH_SIZE || fetchedCount === ALL_IDS.length) {
+      console.log(`  ${fetchedCount}/${ALL_IDS.length} fetched...`);
+      logToChannel(`Fetching cache... ${fetchedCount}/${ALL_IDS.length}`);
+    }
+
+    await new Promise(r => setTimeout(r, 150));
+  }
+
+  try {
+    fs.writeFileSync(CACHE_FILE, JSON.stringify(cache));
+  } catch (e) {
+    console.error('Failed to save cache file:', e.message);
+  }
+
   playerStats = {};
-
- const ALL_IDS = [...new Set([
-  ...CHALLENGE_IDS,
-  ...ZDRIFT_IDS,
-  ...BOULDERING_IDS,
-  ...DRIBBLE_IDS,
-  ...DRIFTBALL_IDS,
-  ...CLUB_IDS,
-  ...PARKOUR_IDS,
-  ...INTRO_IDS,
-  ...WAYS_TO_CLIMB_IDS,
-  ...INTRO_WAYS_TO_CLIMB_IDS,
-])];
-  for (let i = 0; i < ALL_IDS.length; i++) {
-    const id = ALL_IDS[i];
-    const data = await fetchChallenge(id);
-    if (data && Array.isArray(data.top)) {
-      cache[id] = data.top;
-    } else {
-      logToChannel(`Failed to fetch challenge \`${getChallengeName(id)}\` (\`${id}\`)`);
-    }
-    if (i % 10 === 0) {
-      console.log(`  ${i + 1}/${ALL_IDS.length} fetched...`);
-      logToChannel(`Fetching cache... ${i + 1}/${ALL_IDS.length}`);
-    }
-    await new Promise(r => setTimeout(r, 300));
-  }
-
   for (const [challengeId, entries] of Object.entries(cache).filter(([id]) => !ZDRIFT_IDS.includes(id))) {
     entries.forEach(entry => {
       const rank = entry.rank;
@@ -1204,6 +1319,8 @@ async function buildCache() {
     });
   }
 
+  calculateAllMMR();
+
   if (Object.keys(previousCache).length > 0) {
     await checkAlerts(cache);
   }
@@ -1211,22 +1328,25 @@ async function buildCache() {
   lastUpdated = new Date();
   console.log(`Cache built! ${Object.keys(playerStats).length} players found.`);
   logToChannel(`Cache refreshed — ${Object.keys(cache).length} challenges | ${Object.keys(playerStats).length} players | ${new Date().toLocaleTimeString()}`);
-if (spotlightChallenge) await updateSpotlightMessage();
-await checkGauntlet();
-await updateMmrChannel();
+
+  if (spotlightChallenge) await updateSpotlightMessage();
+  await checkGauntlet();
+  await updateMmrChannel();
   await updateChallengeForum();
-// Update bot status channel name
-try {
-  const statusChannel = client.channels.cache.get(BOT_STATUS_CHANNEL_ID);
-  if (statusChannel) {
-    const failCount = ALL_IDS.length - Object.keys(cache).length;
-    const newName = failCount > 0 ? '🔴│bot-status│🔴' : '🟢│bot-status│🟢';
-    if (statusChannel.name !== newName) {
-      await statusChannel.setName(newName);
+
+  // Update bot status channel name
+  try {
+    const statusChannel = client.channels.cache.get(BOT_STATUS_CHANNEL_ID);
+    if (statusChannel) {
+      const failCount = ALL_IDS.length - Object.keys(cache).length;
+      const newName = failCount > 0 ? '🔴│bot-status│🔴' : '🟢│bot-status│🟢';
+      if (statusChannel.name !== newName) {
+        await statusChannel.setName(newName);
+      }
     }
+  } catch (e) {
+    console.error('Failed to update status channel name:', e.message);
   }
-} catch (e) {
-  console.error('Failed to update status channel name:', e.message);
 }
 
   try {
@@ -1247,7 +1367,7 @@ const client = new Client({
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}`);
   logToChannel(`Bot started — logged in as ${client.user.tag}`);
-await buildCache();
+  await buildCache();
   setInterval(buildCache, 10 * 60 * 1000);
   // Start spotlight after first cache build is fully done
   await startSpotlight();
@@ -1725,80 +1845,108 @@ const getIsolatedCategoryPoints = (ids) => {
     interaction.editReply({ embeds: [embed] });
   }
 
-  if (commandName === 'summary') {
-  await interaction.deferReply();
-  const name = interaction.options.getString('name');
+if (commandName === 'summary') {
+    await interaction.deferReply();
+    const name = interaction.options.getString('name');
 
-  const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name.toLowerCase());
-  if (!player) return interaction.editReply(`Player "${name}" not found.`);
+    const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name.toLowerCase());
+    if (!player) return interaction.editReply(`Player "${name}" not found.`);
 
-  const allPlayers = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
-  const globalRank = allPlayers.findIndex(p => p.name.toLowerCase() === name.toLowerCase()) + 1;
+    const rankInfo = getPlayerRankInfo(player.name);
+    const mmrRank = rankInfo.mmrRank ? `#${rankInfo.mmrRank}` : 'Unranked';
 
-  const avgRank = player.ranks.length
-    ? (player.ranks.reduce((sum, r) => sum + r, 0) / player.ranks.length).toFixed(1)
-    : 'N/A';
+    const allPlayers = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
+    const globalRank = allPlayers.findIndex(p => p.name.toLowerCase() === name.toLowerCase()) + 1;
 
-  const getCategoryRank = (ids) => {
-    const players = {};
-    for (const id of ids) {
-      const entries = cache[id] || [];
-      for (const entry of entries) {
-        if (entry.rank > 100) continue;
-        const uid = entry.user_id || entry.username;
-        if (!players[uid]) players[uid] = { name: entry.username, points: 0 };
-        players[uid].points += getPoints(entry.rank);
+    const avgRank = player.ranks.length
+      ? (player.ranks.reduce((sum, r) => sum + r, 0) / player.ranks.length).toFixed(1)
+      : 'N/A';
+
+    const getCategoryRank = (ids) => {
+      const players = {};
+      for (const id of ids) {
+        const entries = cache[id] || [];
+        for (const entry of entries) {
+          if (entry.rank > 100) continue;
+          const uid = entry.user_id || entry.username;
+          if (!players[uid]) players[uid] = { name: entry.username, points: 0 };
+          players[uid].points += getPoints(entry.rank);
+        }
       }
-    }
-    const s = Object.values(players).sort((a, b) => b.points - a.points);
-    const idx = s.findIndex(p => p.name.toLowerCase() === name.toLowerCase());
-    return idx === -1 ? 0 : idx + 1;
-  };
+      const s = Object.values(players).sort((a, b) => b.points - a.points);
+      const idx = s.findIndex(p => p.name.toLowerCase() === name.toLowerCase());
+      return idx === -1 ? 0 : idx + 1;
+    };
 
-  const permIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => d.type === 'perm').map(([id]) => id);
-  const weeklyIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => d.type === 'kazz_easy' || d.type === 'kazz_hard').map(([id]) => id);
-  const raceIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => {
-    if (d.type !== 'weekly_race') return false;
-    const match = d.name.match(/WeeklyRace(\d+)/i);
-    return match && parseInt(match[1]) >= 22;
-  }).map(([id]) => id);
+    const permIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => d.type === 'perm').map(([id]) => id);
+    const weeklyIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => d.type === 'kazz_easy' || d.type === 'kazz_hard').map(([id]) => id);
+    const raceIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => {
+      if (d.type !== 'weekly_race') return false;
+      const match = d.name.match(/WeeklyRace(\d+)/i);
+      return match && parseInt(match[1]) >= 22;
+    }).map(([id]) => id);
 
-  const permRank = getCategoryRank(permIds);
-  const weeklyRank = getCategoryRank(weeklyIds);
-  const raceRank = getCategoryRank(raceIds);
-  const zdriftRank = getCategoryRank(ZDRIFT_IDS);
-  const boulderingRank = getCategoryRank(BOULDERING_IDS);
-  const dribbleRank = getCategoryRank(DRIBBLE_IDS);
-  const driftballRank = getCategoryRank(DRIFTBALL_IDS);
-  const clubRank = getCategoryRank(CLUB_IDS);
-  const parkourRank = getCategoryRank(PARKOUR_IDS);
-  const introRank = getCategoryRank(INTRO_IDS);
-  const waysToClimbRank = getCategoryRank(WAYS_TO_CLIMB_IDS);
-  const introWaysToClimbRank = getCategoryRank(INTRO_WAYS_TO_CLIMB_IDS);
+    const permRank = getCategoryRank(permIds);
+    const weeklyRank = getCategoryRank(weeklyIds);
+    const raceRank = getCategoryRank(raceIds);
+    const zdriftRank = getCategoryRank(ZDRIFT_IDS);
+    const boulderingRank = getCategoryRank(BOULDERING_IDS);
+    const dribbleRank = getCategoryRank(DRIBBLE_IDS);
+    const driftballRank = getCategoryRank(DRIFTBALL_IDS);
+    const clubRank = getCategoryRank(CLUB_IDS);
+    const parkourRank = getCategoryRank(PARKOUR_IDS);
+    const introRank = getCategoryRank(INTRO_IDS);
+    const waysToClimbRank = getCategoryRank(WAYS_TO_CLIMB_IDS);
+    const introWaysToClimbRank = getCategoryRank(INTRO_WAYS_TO_CLIMB_IDS);
 
-  const embed = new EmbedBuilder()
-    .setTitle(player.name.slice(0, 256))
-    .setColor(0x5865f2)
-    .setDescription([
-      `**Global Rank:** #${globalRank} | ${player.totalPoints.toLocaleString()} pts | Avg Rank: ${avgRank}`,
-      `**Perm Rank:** ${permRank > 0 ? `#${permRank}` : 'Unranked'}`,
-      `**Weekly Rank:** ${weeklyRank > 0 ? `#${weeklyRank}` : 'Unranked'}`,
-      `**Racing Rank:** ${raceRank > 0 ? `#${raceRank}` : 'Unranked'}`,
-      `**ZDrift Rank:** ${zdriftRank > 0 ? `#${zdriftRank}` : 'Unranked'}`,
-      `**Bouldering Rank:** ${boulderingRank > 0 ? `#${boulderingRank}` : 'Unranked'}`,
-      `**Dribble Rank:** ${dribbleRank > 0 ? `#${dribbleRank}` : 'Unranked'}`,
-      `**Driftball Rank:** ${driftballRank > 0 ? `#${driftballRank}` : 'Unranked'}`,
-      `**Club Rank:** ${clubRank > 0 ? `#${clubRank}` : 'Unranked'}`,
-      `**Parkour Rank:** ${parkourRank > 0 ? `#${parkourRank}` : 'Unranked'}`,
-      `**Intro Rank:** ${introRank > 0 ? `#${introRank}` : 'Unranked'}`,
-      `**Ways To Climb Rank:** ${waysToClimbRank > 0 ? `#${waysToClimbRank}` : 'Unranked'}`,
-      `**Intro Ways To Climb Rank:** ${introWaysToClimbRank > 0 ? `#${introWaysToClimbRank}` : 'Unranked'}`,
-      `**WRs:** ${player.wrCount} | **Top 7s:** ${player.top7Count} | **Top 100s:** ${player.top100Count}`,
-    ].join('\n'))
-    .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+    const embed = new EmbedBuilder()
+      .setTitle(`${player.name} — ${rankInfo.fullRank}`.slice(0, 256))
+      .setColor(rankInfo.color)
+      .setDescription([
+        `**MMR:** ${rankInfo.mmr.toLocaleString()} MMR (${mmrRank}) | **Rank:** ${rankInfo.fullRank}`,
+        `**Global Rank:** #${globalRank} | ${player.totalPoints.toLocaleString()} pts | Avg Rank: ${avgRank}`,
+        `**Perm Rank:** ${permRank > 0 ? `#${permRank}` : 'Unranked'}`,
+        `**Weekly Rank:** ${weeklyRank > 0 ? `#${weeklyRank}` : 'Unranked'}`,
+        `**Racing Rank:** ${raceRank > 0 ? `#${raceRank}` : 'Unranked'}`,
+        `**ZDrift Rank:** ${zdriftRank > 0 ? `#${zdriftRank}` : 'Unranked'}`,
+        `**Bouldering Rank:** ${boulderingRank > 0 ? `#${boulderingRank}` : 'Unranked'}`,
+        `**Dribble Rank:** ${dribbleRank > 0 ? `#${dribbleRank}` : 'Unranked'}`,
+        `**Driftball Rank:** ${driftballRank > 0 ? `#${driftballRank}` : 'Unranked'}`,
+        `**Club Rank:** ${clubRank > 0 ? `#${clubRank}` : 'Unranked'}`,
+        `**Parkour Rank:** ${parkourRank > 0 ? `#${parkourRank}` : 'Unranked'}`,
+        `**Intro Rank:** ${introRank > 0 ? `#${introRank}` : 'Unranked'}`,
+        `**Ways To Climb Rank:** ${waysToClimbRank > 0 ? `#${waysToClimbRank}` : 'Unranked'}`,
+        `**Intro Ways To Climb Rank:** ${introWaysToClimbRank > 0 ? `#${introWaysToClimbRank}` : 'Unranked'}`,
+        `**WRs:** ${player.wrCount} | **Top 7s:** ${player.top7Count} | **Top 100s:** ${player.top100Count}`,
+      ].join('\n'))
+      .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
 
-  return interaction.editReply({ embeds: [embed] });
-}
+    return interaction.editReply({ embeds: [embed] });
+  }
+
+  else if (commandName === 'mmrleaderboard') {
+    await interaction.deferReply();
+    const page = interaction.options.getInteger('page') || 1;
+    const perPage = 30;
+    const allMmr = calculateAllMMR();
+    const totalPages = Math.ceil(allMmr.length / perPage);
+    const slice = allMmr.slice((page - 1) * perPage, page * perPage);
+
+    if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
+
+    const lines = slice.map((p, i) => {
+      const rank = (page - 1) * perPage + i + 1;
+      return `#${rank} ${formatPlayer(p.name)} — **${p.mmr.toLocaleString()} MMR** (${p.rankedCategories}/13)`;
+    });
+
+    const embed = new EmbedBuilder()
+      .setTitle('Overall MMR Leaderboard')
+      .setColor(0xf1c40f)
+      .setDescription(lines.join('\n'))
+      .setFooter({ text: `Page ${page}/${totalPages} • Max MMR: 7,000 • Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+
+    return interaction.editReply({ embeds: [embed] });
+  }
 
   else if (commandName === 'permleaderboard') {
     await interaction.deferReply();
@@ -1811,7 +1959,7 @@ const getIsolatedCategoryPoints = (ids) => {
     const lines = slice.map((p, i) => {
       const rank = (page - 1) * perPage + i + 1;
       const avgRank = p.ranks.length ? (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1) : 'N/A';
-      return `#${rank} **${p.name}** — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
+      return `#${rank} ${formatPlayer(p.name)} — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
     });
 
     const embed = new EmbedBuilder()
@@ -1834,7 +1982,7 @@ const getIsolatedCategoryPoints = (ids) => {
     const lines = slice.map((p, i) => {
       const rank = (page - 1) * perPage + i + 1;
       const avgRank = p.ranks.length ? (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1) : 'N/A';
-      return `#${rank} **${p.name}** — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
+      return `#${rank} ${formatPlayer(p.name)} — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
     });
 
     const embed = new EmbedBuilder()
@@ -1846,7 +1994,7 @@ const getIsolatedCategoryPoints = (ids) => {
     interaction.editReply({ embeds: [embed] });
   }
 
-else if (commandName === 'racingleaderboard') {
+  else if (commandName === 'racingleaderboard') {
     await interaction.deferReply();
     const page = interaction.options.getInteger('page') || 1;
     const perPage = 30;
@@ -1889,7 +2037,7 @@ else if (commandName === 'racingleaderboard') {
     const lines = slice.map((p, i) => {
       const rank = (page - 1) * perPage + i + 1;
       const avgRank = p.ranks.length ? (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1) : 'N/A';
-      return `#${rank} **${p.name}** — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
+      return `#${rank} ${formatPlayer(p.name)} — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
     });
 
     const embed = new EmbedBuilder()
@@ -1900,44 +2048,45 @@ else if (commandName === 'racingleaderboard') {
 
     interaction.editReply({ embeds: [embed] });
   }
-// Dribble
-else if (commandName === 'dribbleleaderboard') {
-  await interaction.deferReply();
-  const page = interaction.options.getInteger('page') || 1;
-  const perPage = 30;
-  const stats = {};
-  for (const id of DRIBBLE_IDS) {
-    const entries = cache[id];
-    if (!entries) continue;
-    entries.forEach(entry => {
-      const rank = entry.rank;
-      if (rank > 100) return;
-      const name = entry.username || 'Unknown';
-      const userId = entry.user_id || name;
-      if (!stats[userId]) stats[userId] = { name, totalPoints: 0, wrCount: 0, top7Count: 0, top100Count: 0, ranks: [] };
-      stats[userId].totalPoints += getPoints(rank);
-      stats[userId].top100Count++;
-      if (rank === 1) stats[userId].wrCount++;
-      if (rank <= 7) stats[userId].top7Count++;
-      stats[userId].ranks.push(rank);
+
+  // Dribble
+  else if (commandName === 'dribbleleaderboard') {
+    await interaction.deferReply();
+    const page = interaction.options.getInteger('page') || 1;
+    const perPage = 30;
+    const stats = {};
+    for (const id of DRIBBLE_IDS) {
+      const entries = cache[id];
+      if (!entries) continue;
+      entries.forEach(entry => {
+        const rank = entry.rank;
+        if (rank > 100) return;
+        const name = entry.username || 'Unknown';
+        const userId = entry.user_id || name;
+        if (!stats[userId]) stats[userId] = { name, totalPoints: 0, wrCount: 0, top7Count: 0, top100Count: 0, ranks: [] };
+        stats[userId].totalPoints += getPoints(rank);
+        stats[userId].top100Count++;
+        if (rank === 1) stats[userId].wrCount++;
+        if (rank <= 7) stats[userId].top7Count++;
+        stats[userId].ranks.push(rank);
+      });
+    }
+    const sorted = Object.values(stats).sort((a, b) => b.totalPoints - a.totalPoints);
+    const totalPages = Math.ceil(sorted.length / perPage);
+    const slice = sorted.slice((page - 1) * perPage, page * perPage);
+    if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
+    const lines = slice.map((p, i) => {
+      const rank = (page - 1) * perPage + i + 1;
+      const avgRank = p.ranks.length ? (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1) : 'N/A';
+      return `#${rank} ${formatPlayer(p.name)} — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
     });
+    const embed = new EmbedBuilder()
+      .setTitle('Dribble Leaderboard')
+      .setColor(0xf5a623)
+      .setDescription(lines.join('\n'))
+      .setFooter({ text: `Page ${page}/${totalPages} • Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+    interaction.editReply({ embeds: [embed] });
   }
-  const sorted = Object.values(stats).sort((a, b) => b.totalPoints - a.totalPoints);
-  const totalPages = Math.ceil(sorted.length / perPage);
-  const slice = sorted.slice((page - 1) * perPage, page * perPage);
-  if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
-  const lines = slice.map((p, i) => {
-    const rank = (page - 1) * perPage + i + 1;
-    const avgRank = p.ranks.length ? (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1) : 'N/A';
-    return `#${rank} **${p.name}** — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
-  });
-  const embed = new EmbedBuilder()
-    .setTitle('Dribble Leaderboard')
-    .setColor(0xf5a623)
-    .setDescription(lines.join('\n'))
-    .setFooter({ text: `Page ${page}/${totalPages} • Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
-  interaction.editReply({ embeds: [embed] });
-}
 
 else if (commandName === 'dribbletop7leaderboard') {
   await interaction.deferReply();
