@@ -1349,13 +1349,6 @@ async function buildCache() {
   }
 }
 
-  try {
-    fs.writeFileSync(CACHE_FILE, JSON.stringify(cache));
-  } catch (e) {
-    console.error('Failed to save cache file:', e.message);
-  }
-}
-
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
