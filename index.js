@@ -1513,9 +1513,10 @@ client.once('ready', async () => {
 
 client.on('interactionCreate', async interaction => {
 
-  if (interaction.isAutocomplete()) {
+if (interaction.isAutocomplete()) {
     const { commandName } = interaction;
-    const focused = interaction.options.getFocused().toLowerCase();
+    const focusedOption = interaction.options.getFocused(true);
+    const focused = focusedOption.value.toLowerCase();
 
     if (
       commandName === 'stats' || commandName === 'improve' || commandName === '1v1' ||
@@ -1523,7 +1524,7 @@ client.on('interactionCreate', async interaction => {
       commandName === 'zsummary' || commandName === 'boulderingimprove' || commandName === 'dribbleimprove' ||
       commandName === 'driftballimprove' || commandName === 'clubimprove' || commandName === 'parkourimprove' ||
       commandName === 'introimprove' || commandName === 'waystoclimbimprove' || commandName === 'introwaystoclimbimprove' ||
-      commandName === 'time'
+      (commandName === 'time' && focusedOption.name === 'name')
     ) {
       const matches = Object.values(playerStats)
         .filter(p => p.name.toLowerCase().includes(focused))
@@ -1533,7 +1534,7 @@ client.on('interactionCreate', async interaction => {
       return interaction.respond(matches);
     }
 
-    if (commandName === 'challenge' || (commandName === 'time' && interaction.options.getFocused(true).name === 'challenge')) {
+    if (commandName === 'challenge' || (commandName === 'time' && focusedOption.name === 'challenge')) {
       const ALL_CHALLENGE_IDS = [...new Set([...CHALLENGE_IDS, ...ZDRIFT_IDS])];
       const matches = ALL_CHALLENGE_IDS
         .filter(id => getChallengeName(id).toLowerCase().includes(focused) || id.toLowerCase().includes(focused))
