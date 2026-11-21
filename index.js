@@ -1135,6 +1135,9 @@ async function startMiniCup(previousCupNumber = 0) {
   const boulderingPicks = pickRandomUnique(BOULDERING_IDS, usedIds, 5);
   boulderingPicks.forEach(id => usedIds.add(id));
 
+  // Capture the exact millisecond the cup is started
+  const cupStartTime = Date.now();
+
   const buildChallengeObj = (id, category) => {
     const entries = cache[id] || [];
     const fourth = entries.find(e => e.rank === 4);
@@ -1143,7 +1146,9 @@ async function startMiniCup(previousCupNumber = 0) {
 
     const snapshot = {};
     for (const e of entries) {
-      if (e.username && e.record <= target) {
+      // e.timestamp must be greater than or equal to when the cup started
+      // Note: Change `e.timestamp` to match whatever property your entry uses for dates (e.g. e.date, e.timeSubmitted)
+      if (e.username && e.record <= target && e.timestamp >= cupStartTime) {
         snapshot[e.username] = e.record;
       }
     }
@@ -1168,6 +1173,7 @@ async function startMiniCup(previousCupNumber = 0) {
 
   miniCupState = {
     cupNumber: previousCupNumber + 1,
+    startTime: cupStartTime, // Saved in state so it persists across updates
     challenges,
   };
 
@@ -1197,8 +1203,13 @@ function buildMiniCupEmbed(state) {
     challengeSections.push(`**${categoryName}**`);
     for (const c of challenges) {
       const clearsCount = Object.keys(c.snapshot || {}).length;
-      // Completely plain text with zero bullet points or dash characters
-      challengeSections.push(`<#${c.id}> — Target: ${formatTime(c.target)} (${clearsCount} clears)`);
+      
+      // Look up the human-readable name using your CHALLENGE_NAMES object
+      const challengeInfo = CHALLENGE_NAMES[c.id];
+      const displayName = challengeInfo ? challengeInfo.name : `Challenge ${c.id}`;
+
+      // Plain text formatting using the map name instead of the hex ID
+      challengeSections.push(`${displayName} — Target: ${formatTime(c.target)} (${clearsCount} clears)`);
     }
     challengeSections.push(''); // spacing between category sections
   }
