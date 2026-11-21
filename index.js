@@ -1038,14 +1038,12 @@ async function startMiniCup(previousCupNumber = 0) {
   const boulderingPicks = pickRandomUnique(BOULDERING_IDS, usedIds, 2);
   const zdriftPicks = pickRandomUnique(ZDRIFT_IDS, usedIds, 2);
 
-const buildChallengeObj = (id, category) => {
+  const buildChallengeObj = (id, category) => {
     const entries = cache[id] || [];
     const fourth = entries.find(e => e.rank === 4);
     const seventh = entries.find(e => e.rank === 7);
     const target = roundUpToNearest005(fourth.record + (seventh.record - fourth.record) * 0.65);
 
-    // Only store baseline times for players who ALREADY beat the target before the cup started.
-    // This keeps the Base64 state string extremely small (<300 chars) even with 5,000+ players!
     const snapshot = {};
     for (const e of entries) {
       if (e.username && e.record <= target) {
@@ -1076,20 +1074,13 @@ const buildChallengeObj = (id, category) => {
   const { mainEmbed, stateMessageContent } = buildMiniCupEmbed(miniCupState);
 
   try {
-    if (miniCupMessageId) {
-      const existingMsg = await channel.messages.fetch(miniCupMessageId).catch(() => null);
-      if (existingMsg) {
-        await existingMsg.edit({ content: stateMessageContent, embeds: [mainEmbed] });
-        return;
-      }
-    }
+    // Always send a brand-new message when forcing a cup rotation
     const sent = await channel.send({ content: stateMessageContent, embeds: [mainEmbed] });
     miniCupMessageId = sent.id;
   } catch (e) {
     console.error('Failed to post Mini Cup:', e.message);
   }
 }
-
 async function updateMiniCup() {
   const channel = client.channels.cache.get(MINI_CUP_CHANNEL_ID);
   if (!channel) return;
