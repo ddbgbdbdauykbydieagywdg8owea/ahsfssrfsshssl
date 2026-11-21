@@ -1114,13 +1114,26 @@ async function startMiniCup(previousCupNumber = 0) {
 
   const usedIds = new Set(miniCupState ? miniCupState.challenges.map(c => c.id) : []);
 
-  const waysToClimbPicks = pickRandomUnique(WAYS_TO_CLIMB_IDS, usedIds, 1);
   const introPicks = pickRandomUnique(INTRO_IDS, usedIds, 1);
-  const parkourPicks = pickRandomUnique(PARKOUR_IDS, usedIds, 5);
-  const clubPicks = pickRandomUnique(CLUB_IDS, usedIds, 5);
+  introPicks.forEach(id => usedIds.add(id));
+
+  const waysToClimbPicks = pickRandomUnique(WAYS_TO_CLIMB_IDS, usedIds, 1);
+  waysToClimbPicks.forEach(id => usedIds.add(id));
+
   const nodribblePicks = pickRandomUnique(NODRIBBLE_DRIFTBALL_IDS, usedIds, 5);
-  const boulderingPicks = pickRandomUnique(BOULDERING_IDS, usedIds, 5);
+  nodribblePicks.forEach(id => usedIds.add(id));
+
+  const parkourPicks = pickRandomUnique(PARKOUR_IDS, usedIds, 5);
+  parkourPicks.forEach(id => usedIds.add(id));
+
+  const clubPicks = pickRandomUnique(CLUB_IDS, usedIds, 5);
+  clubPicks.forEach(id => usedIds.add(id));
+
   const zdriftPicks = pickRandomUnique(ZDRIFT_IDS, usedIds, 5);
+  zdriftPicks.forEach(id => usedIds.add(id));
+
+  const boulderingPicks = pickRandomUnique(BOULDERING_IDS, usedIds, 5);
+  boulderingPicks.forEach(id => usedIds.add(id));
 
   const buildChallengeObj = (id, category) => {
     const entries = cache[id] || [];
@@ -1139,13 +1152,13 @@ async function startMiniCup(previousCupNumber = 0) {
   };
 
   const challenges = [
-    ...waysToClimbPicks.map(id => buildChallengeObj(id, 'Ways to Climb')),
     ...introPicks.map(id => buildChallengeObj(id, 'Intro')),
+    ...waysToClimbPicks.map(id => buildChallengeObj(id, 'Ways to Climb')),
+    ...nodribblePicks.map(id => buildChallengeObj(id, 'Driftball (No Dribble)')),
     ...parkourPicks.map(id => buildChallengeObj(id, 'Parkour')),
     ...clubPicks.map(id => buildChallengeObj(id, 'Club')),
-    ...nodribblePicks.map(id => buildChallengeObj(id, 'Driftball (No Dribble)')),
-    ...boulderingPicks.map(id => buildChallengeObj(id, 'Bouldering')),
     ...zdriftPicks.map(id => buildChallengeObj(id, 'ZDrift')),
+    ...boulderingPicks.map(id => buildChallengeObj(id, 'Bouldering')),
   ];
 
   if (challenges.length < 27) {
@@ -1170,56 +1183,66 @@ async function startMiniCup(previousCupNumber = 0) {
   }
 }
 
-async function updateMiniCup() {
-  const channel = client.channels.cache.get(MINI_CUP_CHANNEL_ID);
-  if (!channel) return;
+function buildMiniCupEmbed(state) {
+  const categoriesMap = {};
+  for (const c of state.challenges) {
+    if (!categoriesMap[c.category]) {
+      categoriesMap[c.category] = [];
+    }
+    categoriesMap[c.category].push(c);
+  }
 
-  if (!miniCupState) {
-    const restored = await restoreMiniCupFromDiscord();
-    if (!restored) {
-      await startMiniCup(0);
-      return;
+  const challengeSections = [];
+  for (const [categoryName, challenges] of Object.entries(categoriesMap)) {
+    challengeSections.push(`**${categoryName}**`);
+    for (const c of challenges) {
+      const clearsCount = Object.keys(c.snapshot || {}).length;
+      // Completely plain text with zero bullet points or dash characters
+      challengeSections.push(`<#${c.id}> — Target: ${formatTime(c.target)} (${clearsCount} clears)`);
+    }
+    challengeSections.push(''); // spacing between category sections
+  }
+
+  const playerClears = {};
+  const totalChallenges = state.challenges.length;
+
+  for (const c of state.challenges) {
+    for (const username of Object.keys(c.snapshot || {})) {
+      playerClears[username] = (playerClears[username] || 0) + 1;
     }
   }
 
-  const { mainEmbed, standings } = buildMiniCupEmbed(miniCupState);
+  const winners = Object.entries(playerClears)
+    .filter(([_, count]) => count === totalChallenges)
+    .map(([username]) => username);
 
-  const fullSweepWinner = standings.find(s => s.clears >= 8);
-
-  if (fullSweepWinner) {
-    const winnerChannel = client.channels.cache.get(MINI_CUP_WINNER_CHANNEL_ID);
-
-    if (winnerChannel) {
-      const winEmbed = new EmbedBuilder()
-        .setTitle(`Mini Cup #${miniCupState.cupNumber} Completed!`)
-        .setColor(0xffd700)
-        .setDescription(
-          `**Winner:** ${formatPlayer(fullSweepWinner.name)}\n` +
-          `**Score:** **8/8** targets beaten (-${fullSweepWinner.totalMargin.toFixed(3)}s total margin)\n\n` +
-          `A new 8-challenge Mini Cup starts now!`
-        )
-        .setTimestamp();
-
-      await winnerChannel.send({ embeds: [winEmbed] }).catch(console.error);
-    }
-
-    const oldCupNum = miniCupState.cupNumber;
-    await startMiniCup(oldCupNum);
-    return;
-  }
-
-  try {
-    if (miniCupMessageId) {
-      const msg = await channel.messages.fetch(miniCupMessageId);
-      await msg.edit({ embeds: [mainEmbed] });
+  const standingsLines = [];
+  if (winners.length > 0) {
+    standingsLines.push(`**Winner:** ${winners.join(', ')} — Cup Won!`);
+  } else {
+    const sorted = Object.entries(playerClears).sort((a, b) => b[1] - a[1]);
+    if (sorted.length === 0) {
+      standingsLines.push('No targets beaten yet — beat all targets (new/improved PBs) to win the Cup!');
     } else {
-      const msg = await channel.send({ embeds: [mainEmbed] });
-      miniCupMessageId = msg.id;
+      for (const [user, count] of sorted.slice(0, 5)) {
+        standingsLines.push(`${user}: ${count}/${totalChallenges} cleared`);
+      }
     }
-  } catch (e) {
-    console.error('Failed to update Mini Cup message:', e.message);
-    miniCupMessageId = null;
   }
+
+  const mainEmbed = new EmbedBuilder()
+    .setTitle(`Orion Drift Mini Cup #${state.cupNumber} (${totalChallenges} Challenges)`)
+    .setColor(0x9b59b6)
+    .setDescription([
+      `First player to beat the Gauntlet-difficulty target on all **${totalChallenges} challenges** (new or improved PBs only) wins and starts the next Cup!`,
+      '',
+      ...challengeSections,
+      '**__Live Cup Standings__**',
+      ...standingsLines,
+    ].join('\n').slice(0, 4096))
+    .setFooter({ text: `Cup #${state.cupNumber} • Updates every 2 mins` });
+
+  return { mainEmbed, standings: playerClears };
 }
 const DIVISIONS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII']; // I = lowest in tier, VIII = highest in tier
 
