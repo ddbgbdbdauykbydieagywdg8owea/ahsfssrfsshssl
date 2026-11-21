@@ -1682,7 +1682,7 @@ else if (commandName === 'time') {
     const raw15 = Number(entry.record).toFixed(15);
 
     const diffLine = entry.rank === 1
-      ? `**Gap to WR:** Current World Record! 🏆`
+      ? `**Gap to WR:** Current World Record!`
       : `**Gap to WR:** +${diffFromWr.toFixed(3)}s (${formatTime(wr.record)} by ${wr.username})`;
 
     const embed = new EmbedBuilder()
