@@ -667,7 +667,7 @@ async function checkAlerts(newCache) {
           const embed = new EmbedBuilder()
             .setTitle('New World Record')
             .setColor(0xffd700)
-            .setDescription(`**${newEntry.username}** set a new WR on **${getChallengeName(challengeId)}**\nTime: **${formatTime(newEntry.record)}**`)
+            .setDescription(`${formatPlayer(newEntry.username)} set a new WR on **${getChallengeName(challengeId)}**\nTime: **${formatTime(newEntry.record)}**`)
             .setTimestamp();
           wrChannel.send({ embeds: [embed] }).catch(console.error);
         }
@@ -679,14 +679,14 @@ async function checkAlerts(newCache) {
           const embed = new EmbedBuilder()
             .setTitle('New Top 7')
             .setColor(0x57f287)
-            .setDescription(`**${newEntry.username}** entered the top 7 on **${getChallengeName(challengeId)}**\nRank **#${newEntry.rank}** — Time: **${formatTime(newEntry.record)}**`)
+            .setDescription(`${formatPlayer(newEntry.username)} entered the top 7 on **${getChallengeName(challengeId)}**\nRank **#${newEntry.rank}** — Time: **${formatTime(newEntry.record)}**`)
             .setTimestamp();
           top7Channel.send({ embeds: [embed] }).catch(console.error);
         } else if (wasAlreadyTop7 && newEntry.record < oldEntry.record && top7Channel) {
           const embed = new EmbedBuilder()
             .setTitle('Top 7 Personal Best')
             .setColor(0x1abc9c)
-            .setDescription(`**${newEntry.username}** improved their time on **${getChallengeName(challengeId)}**\nRank **#${newEntry.rank}** — **${formatTime(oldEntry.record)}** -> **${formatTime(newEntry.record)}**`)
+            .setDescription(`${formatPlayer(newEntry.username)} improved their time on **${getChallengeName(challengeId)}**\nRank **#${newEntry.rank}** — **${formatTime(oldEntry.record)}** -> **${formatTime(newEntry.record)}**`)
             .setTimestamp();
           top7Channel.send({ embeds: [embed] }).catch(console.error);
         }
@@ -696,7 +696,7 @@ async function checkAlerts(newCache) {
         const embed = new EmbedBuilder()
           .setTitle('Personal Best')
           .setColor(0x3498db)
-          .setDescription(`**${newEntry.username}** improved on **${getChallengeName(challengeId)}**\nRank **#${newEntry.rank}** — **${formatTime(oldEntry.record)}** -> **${formatTime(newEntry.record)}**`)
+          .setDescription(`${formatPlayer(newEntry.username)} improved on **${getChallengeName(challengeId)}**\nRank **#${newEntry.rank}** — **${formatTime(oldEntry.record)}** -> **${formatTime(newEntry.record)}**`)
           .setTimestamp();
         pbChannel.send({ embeds: [embed] }).catch(console.error);
       }
@@ -705,7 +705,7 @@ async function checkAlerts(newCache) {
         const embed = new EmbedBuilder()
           .setTitle('New Top 100 Entry')
           .setColor(0x95a5a6)
-          .setDescription(`**${newEntry.username}** entered the top 100 on **${getChallengeName(challengeId)}**\nRank **#${newEntry.rank}** — Time: **${formatTime(newEntry.record)}**`)
+          .setDescription(`${formatPlayer(newEntry.username)} entered the top 100 on **${getChallengeName(challengeId)}**\nRank **#${newEntry.rank}** — Time: **${formatTime(newEntry.record)}**`)
           .setTimestamp();
         pbChannel.send({ embeds: [embed] }).catch(console.error);
       }
@@ -742,7 +742,7 @@ async function updateSpotlightMessage() {
   const secsLeft = Math.floor((timeLeft % 60000) / 1000);
 
   const sorted = [...spotlightNewTimes].sort((a, b) => a.record - b.record);
-  const lines = sorted.slice(0, 20).map((e, i) => `#${i + 1} **${e.username}** — ${formatTime(e.record)}`);
+  const lines = sorted.slice(0, 20).map((e, i) => `#${i + 1} ${formatPlayer(e.username)} — ${formatTime(e.record)}`);
 
   const embed = new EmbedBuilder()
     .setTitle(`Spotlight Challenge: ${getChallengeName(spotlightChallenge)}`)
@@ -834,7 +834,7 @@ const target = roundUpToNearest005(fourth.record + (seventh.record - fourth.reco
     `**Gauntlet Challenge**\n` +
     `Challenge: ${getChallengeName(id)}\n` +
     `Target Time: ${formatTime(target)}\n` +
-    `Current WR: ${formatTime(wr.record)} by ${wr.username}\n` +
+    `Current WR: ${formatTime(wr.record)} by ${formatPlayer(wr.username)}\n` +
     `Beat the target to move to the next challenge.`
   );
 }
@@ -858,7 +858,7 @@ async function checkGauntlet() {
 
   const winnerChannel = client.channels.cache.get(GAUNTLET_WINNER_CHANNEL_ID);
   if (winnerChannel) {
-    const lines = winners.map(w => `${w.username} - ${formatTime(w.record)}`);
+    const lines = winners.map(w => `${formatPlayer(w.username)} - ${formatTime(w.record)}`);
     await winnerChannel.send(
       `**Gauntlet Beaten**\n` +
       `Challenge: ${getChallengeName(gauntletChallenge)}\n` +
@@ -880,7 +880,7 @@ async function endSpotlight() {
     const embed = new EmbedBuilder()
       .setTitle(`Spotlight Challenge Over!`)
       .setColor(0xffd700)
-      .setDescription(`**Challenge:** ${getChallengeName(spotlightChallenge)}\n\nWinner: **${winner.username}**\nTime: **${formatTime(winner.record)}**\n\nA new challenge starts now!`)
+      .setDescription(`**Challenge:** ${getChallengeName(spotlightChallenge)}\n\nWinner: ${formatPlayer(winner.username)}\nTime: **${formatTime(winner.record)}**\n\nA new challenge starts now!`)
       .setTimestamp();
     winnerChannel.send({ embeds: [embed] }).catch(console.error);
   } else if (winnerChannel) {
@@ -1060,12 +1060,12 @@ async function updateMmrChannel() {
   const channel = client.channels.cache.get(MMR_LEADERBOARD_CHANNEL_ID);
   if (!channel) return;
 
-  const sorted = calculateAllMMR();
+const sorted = calculateAllMMR();
   if (sorted.length === 0) return;
 
   const top30 = sorted.slice(0, 30);
   const lines = top30.map((p, i) =>
-    `#${i + 1} **${p.name}** — **${p.mmr.toLocaleString()} MMR** (${p.rankedCategories}/13 categories)`
+    `#${i + 1} ${formatPlayer(p.name)} — **${p.mmr.toLocaleString()} MMR** (${p.rankedCategories}/13 categories)`
   );
 
   const embed = new EmbedBuilder()
@@ -1093,6 +1093,7 @@ async function updateMmrChannel() {
     mmrMessageId = null;
   }
 }
+
 async function updateChallengeForum() {
   const forumChannel = client.channels.cache.get(CHALLENGE_FORUM_CHANNEL_ID);
   if (!forumChannel) return;
@@ -1145,7 +1146,8 @@ async function updateChallengeForum() {
   for (const id of allChallengeIds) {
     const entries = cache[id];
     if (!entries || entries.length === 0) continue;
-// Check if this challenge's top 100 actually changed since the last refresh
+
+    // Check if this challenge's top 100 actually changed since the last refresh
     const prevEntries = previousCache[id];
     const hasChanged =
       !prevEntries ||
@@ -1155,13 +1157,14 @@ async function updateChallengeForum() {
         e.record !== prevEntries[idx]?.record ||
         e.rank !== prevEntries[idx]?.rank
       );
+
     const title = getChallengeName(id).slice(0, 100);
     const top100 = entries.slice(0, 100);
 
     const formatLine = (e) => {
       const gRank = e.username ? globalRankMap.get(e.username.toLowerCase()) : null;
       const gTag = gRank ? `Global #${gRank}` : 'Unranked';
-      return `#${e.rank} **${e.username}** — ${formatTime(e.record)} (${gTag})`;
+      return `#${e.rank} ${formatPlayer(e.username)} — ${formatTime(e.record)} (${gTag})`;
     };
 
     const part1Lines = top100.slice(0, 50).map(formatLine);
@@ -1186,7 +1189,7 @@ async function updateChallengeForum() {
       let thread = matched?.thread || threadsByTitle.get(title.toLowerCase());
       let starterMsg = matched?.starter || null;
 
-// Create post only if it does not already exist in Discord
+      // Create post only if it does not already exist in Discord
       if (!thread) {
         thread = await forumChannel.threads.create({
           name: title,
@@ -1236,6 +1239,7 @@ async function updateChallengeForum() {
     await new Promise(r => setTimeout(r, 600));
   }
 }
+
 async function buildCache() {
   console.log(`Fetching ${CHALLENGE_IDS.length} challenges...`);
   if (Object.keys(previousCache).length === 0 && fs.existsSync(CACHE_FILE)) {
@@ -1374,7 +1378,7 @@ client.on('interactionCreate', async interaction => {
     const { commandName } = interaction;
     const focused = interaction.options.getFocused().toLowerCase();
 
-    if (commandName === 'stats' || commandName === 'improve' || commandName === '1v1' || commandName === 'summary' || commandName === 'zdriftimprove' || commandName === 'zstats' || commandName === 'zsummary' || commandName === 'boulderingimprove') {
+    if (commandName === 'stats' || commandName === 'improve' || commandName === '1v1' || commandName === 'summary' || commandName === 'zdriftimprove' || commandName === 'zstats' || commandName === 'zsummary' || commandName === 'boulderingimprove' || commandName === 'dribbleimprove' || commandName === 'driftballimprove' || commandName === 'clubimprove' || commandName === 'parkourimprove' || commandName === 'introimprove' || commandName === 'waystoclimbimprove' || commandName === 'introwaystoclimbimprove') {
       const matches = Object.values(playerStats)
         .filter(p => p.name.toLowerCase().includes(focused))
         .sort((a, b) => b.totalPoints - a.totalPoints)
@@ -1392,7 +1396,7 @@ client.on('interactionCreate', async interaction => {
       return interaction.respond(matches);
     }
 
-if (commandName === 'findbywr') {
+    if (commandName === 'findbywr') {
       const ALL_IDS = [...new Set([...CHALLENGE_IDS, ...ZDRIFT_IDS])];
       const matches = [];
 
@@ -1431,7 +1435,7 @@ if (commandName === 'findbywr') {
     const lines = slice.map((p, i) => {
       const rank = (page - 1) * perPage + i + 1;
       const avgRank = p.ranks.length ? (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1) : 'N/A';
-      return `#${rank} **${p.name}** — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
+      return `#${rank} ${formatPlayer(p.name)} — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
     });
 
     const embed = new EmbedBuilder()
@@ -1452,14 +1456,16 @@ if (commandName === 'findbywr') {
 
     if (!player) return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
 
+    const rankInfo = getPlayerRankInfo(player.name);
     const sorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
     const globalRank = sorted.findIndex(p => p.name === player.name) + 1;
     const avgRank = player.ranks.length ? (player.ranks.reduce((a, b) => a + b, 0) / player.ranks.length).toFixed(1) : 'N/A';
 
     const summaryEmbed = new EmbedBuilder()
-      .setTitle(player.name.slice(0, 256))
-      .setColor(0x5865f2)
+      .setTitle(`${player.name} — ${rankInfo.fullRank}`.slice(0, 256))
+      .setColor(rankInfo.color)
       .setDescription([
+        `**MMR:** ${rankInfo.mmr.toLocaleString()} MMR (${rankInfo.mmrRank ? `#${rankInfo.mmrRank}` : 'Unranked'}) | **Rank:** ${rankInfo.fullRank}`,
         `**Global Rank:** #${globalRank}`,
         `**Total Points:** ${player.totalPoints.toLocaleString()}`,
         `**World Records (1st):** ${player.wrCount}`,
@@ -1482,7 +1488,7 @@ if (commandName === 'findbywr') {
       const line = challengeLines[i] + '\n';
       if ((chunk + line).length > 4096) {
         const followEmbed = new EmbedBuilder()
-          .setColor(0x5865f2)
+          .setColor(rankInfo.color)
           .setTitle(`Challenge Appearances (${chunkIndex}/${totalChunks})`)
           .setDescription(chunk.trim());
         await interaction.followUp({ embeds: [followEmbed] });
@@ -1494,13 +1500,14 @@ if (commandName === 'findbywr') {
 
     if (chunk.trim().length > 0) {
       const followEmbed = new EmbedBuilder()
-        .setColor(0x5865f2)
+        .setColor(rankInfo.color)
         .setTitle(totalChunks > 1 ? `Challenge Appearances (${chunkIndex}/${totalChunks})` : 'Challenge Appearances')
         .setDescription(chunk.trim());
       await interaction.followUp({ embeds: [followEmbed] });
     }
   }
-else if (commandName === 'mmrleaderboard') {
+
+  else if (commandName === 'mmrleaderboard') {
     await interaction.deferReply();
     const page = interaction.options.getInteger('page') || 1;
     const perPage = 30;
@@ -1513,7 +1520,7 @@ else if (commandName === 'mmrleaderboard') {
 
     const lines = slice.map((p, i) => {
       const rank = (page - 1) * perPage + i + 1;
-      return `#${rank} **${p.name}** — **${p.mmr.toLocaleString()} MMR** (${p.rankedCategories}/13 categories)`;
+      return `#${rank} ${formatPlayer(p.name)} — **${p.mmr.toLocaleString()} MMR** (${p.rankedCategories}/13 categories)`;
     });
 
     const embed = new EmbedBuilder()
@@ -1524,13 +1531,14 @@ else if (commandName === 'mmrleaderboard') {
 
     return interaction.editReply({ embeds: [embed] });
   }
+
   else if (commandName === 'challenge') {
     await interaction.deferReply();
     const id = interaction.options.getString('id').toUpperCase();
     const entries = cache[id];
     if (!entries || entries.length === 0) return interaction.editReply(`No data found for challenge ID \`${id}\`.`);
 
-    const lines = entries.slice(0, 20).map(e => `#${e.rank} **${e.username}** — ${formatTime(e.record)}`);
+    const lines = entries.slice(0, 20).map(e => `#${e.rank} ${formatPlayer(e.username)} — ${formatTime(e.record)}`);
 
     const embed = new EmbedBuilder()
       .setTitle(`Challenge: ${getChallengeName(id)}`)
@@ -1554,7 +1562,7 @@ else if (commandName === 'mmrleaderboard') {
 
     const lines = slice.map((p, i) => {
       const rank = (page - 1) * perPage + i + 1;
-      return `#${rank} **${p.name}** — Top7: ${p.top7Count} | 1st: ${p.wrCount} | Top100: ${p.top100Count}`;
+      return `#${rank} ${formatPlayer(p.name)} — Top7: ${p.top7Count} | 1st: ${p.wrCount} | Top100: ${p.top100Count}`;
     });
 
     const embed = new EmbedBuilder()
@@ -1579,7 +1587,7 @@ else if (commandName === 'mmrleaderboard') {
 
     const lines = slice.map((p, i) => {
       const rank = (page - 1) * perPage + i + 1;
-      return `#${rank} **${p.name}** — WRs: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count}`;
+      return `#${rank} ${formatPlayer(p.name)} — WRs: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count}`;
     });
 
     const embed = new EmbedBuilder()
@@ -1615,7 +1623,7 @@ else if (commandName === 'mmrleaderboard') {
     const lines = slice.map((p, i) => {
       const rank = (page - 1) * perPage + i + 1;
       const avg = (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1);
-      return `#${rank} **${p.name}** — Avg Rank: ${avg} | Top100s: ${p.top100Count}`;
+      return `#${rank} ${formatPlayer(p.name)} — Avg Rank: ${avg} | Top100s: ${p.top100Count}`;
     });
 
     const embed = new EmbedBuilder()
@@ -1636,161 +1644,168 @@ else if (commandName === 'mmrleaderboard') {
 
     if (!player) return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
 
+    const rankInfo = getPlayerRankInfo(player.name);
     const playerChallengeIds = new Set(player.challenges.map(c => c.challengeId));
     const missing = CHALLENGE_IDS.filter(id => !playerChallengeIds.has(id));
 
-    if (missing.length === 0) return interaction.editReply(`**${player.name}** has a top 100 entry on every challenge!`);
+    if (missing.length === 0) return interaction.editReply(`${formatPlayer(player.name)} has a top 100 entry on every challenge!`);
 
     const lines = missing.map(id => `- **${getChallengeName(id)}**`);
-    const description = [`**${player.name}** has no top 100 entry on ${missing.length} challenge${missing.length === 1 ? '' : 's'}:`, ``, lines.join('\n')].join('\n');
+    const description = [`${formatPlayer(player.name)} has no top 100 entry on ${missing.length} challenge${missing.length === 1 ? '' : 's'}:`, ``, lines.join('\n')].join('\n');
 
     const embed = new EmbedBuilder()
-      .setTitle(`${player.name} — Challenges to Improve`)
-      .setColor(0xe67e22)
+      .setTitle(`${player.name} [${rankInfo.fullRank}] — Challenges to Improve`)
+      .setColor(rankInfo.color)
       .setDescription(description.slice(0, 4096))
       .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
 
     return interaction.editReply({ embeds: [embed] });
   }
 
-else if (commandName === '1v1') {
-  await interaction.deferReply();
+  else if (commandName === '1v1') {
+    await interaction.deferReply();
 
-  const name1 = interaction.options.getString('player1').toLowerCase();
-  const name2 = interaction.options.getString('player2').toLowerCase();
+    const name1 = interaction.options.getString('player1').toLowerCase();
+    const name2 = interaction.options.getString('player2').toLowerCase();
 
-  const p1 = Object.values(playerStats).find(p => p.name.toLowerCase() === name1)
-    || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name1));
-  const p2 = Object.values(playerStats).find(p => p.name.toLowerCase() === name2)
-    || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name2));
+    const p1 = Object.values(playerStats).find(p => p.name.toLowerCase() === name1)
+      || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name1));
+    const p2 = Object.values(playerStats).find(p => p.name.toLowerCase() === name2)
+      || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name2));
 
-  if (!p1) return interaction.editReply(`No player found matching **${interaction.options.getString('player1')}**.`);
-  if (!p2) return interaction.editReply(`No player found matching **${interaction.options.getString('player2')}**.`);
-  if (p1.name === p2.name) return interaction.editReply(`You can't 1v1 yourself.`);
+    if (!p1) return interaction.editReply(`No player found matching **${interaction.options.getString('player1')}**.`);
+    if (!p2) return interaction.editReply(`No player found matching **${interaction.options.getString('player2')}**.`);
+    if (p1.name === p2.name) return interaction.editReply(`You can't 1v1 yourself.`);
 
-  const globalSorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
-  const rank1 = globalSorted.findIndex(p => p.name === p1.name) + 1;
-  const rank2 = globalSorted.findIndex(p => p.name === p2.name) + 1;
+    const rInfo1 = getPlayerRankInfo(p1.name);
+    const rInfo2 = getPlayerRankInfo(p2.name);
 
-  const avg1 = p1.ranks.length ? (p1.ranks.reduce((a, b) => a + b, 0) / p1.ranks.length) : 999;
-  const avg2 = p2.ranks.length ? (p2.ranks.reduce((a, b) => a + b, 0) / p2.ranks.length) : 999;
+    const globalSorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
+    const rank1 = globalSorted.findIndex(p => p.name === p1.name) + 1;
+    const rank2 = globalSorted.findIndex(p => p.name === p2.name) + 1;
 
-  const p1Challenges = new Map(p1.challenges.map(c => [c.challengeId, c]));
-  const p2Challenges = new Map(p2.challenges.map(c => [c.challengeId, c]));
+    const avg1 = p1.ranks.length ? (p1.ranks.reduce((a, b) => a + b, 0) / p1.ranks.length) : 999;
+    const avg2 = p2.ranks.length ? (p2.ranks.reduce((a, b) => a + b, 0) / p2.ranks.length) : 999;
 
-  const sharedIds = [...p1Challenges.keys()].filter(id => p2Challenges.has(id));
-  let p1Wins = 0, p2Wins = 0, ties = 0;
-  for (const id of sharedIds) {
-    const r1 = p1Challenges.get(id).rank;
-    const r2 = p2Challenges.get(id).rank;
-    if (r1 < r2) p1Wins++;
-    else if (r2 < r1) p2Wins++;
-    else ties++;
-  }
+    const p1Challenges = new Map(p1.challenges.map(c => [c.challengeId, c]));
+    const p2Challenges = new Map(p2.challenges.map(c => [c.challengeId, c]));
 
-  const getCategoryPoints = (ids) => {
-    let pts1 = 0, pts2 = 0;
-    for (const id of ids) {
-      const c1 = p1Challenges.get(id);
-      const c2 = p2Challenges.get(id);
-      if (c1) pts1 += getPoints(c1.rank);
-      if (c2) pts2 += getPoints(c2.rank);
+    const sharedIds = [...p1Challenges.keys()].filter(id => p2Challenges.has(id));
+    let p1Wins = 0, p2Wins = 0, ties = 0;
+    for (const id of sharedIds) {
+      const r1 = p1Challenges.get(id).rank;
+      const r2 = p2Challenges.get(id).rank;
+      if (r1 < r2) p1Wins++;
+      else if (r2 < r1) p2Wins++;
+      else ties++;
     }
-    return [pts1, pts2];
-  };
 
-  const permIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => d.type === 'perm').map(([id]) => id);
-  const weeklyIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => d.type === 'kazz_easy' || d.type === 'kazz_hard').map(([id]) => id);
-  const raceIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => {
-    if (d.type !== 'weekly_race') return false;
-    const match = d.name.match(/WeeklyRace(\d+)/i);
-    return match && parseInt(match[1]) >= 22;
-  }).map(([id]) => id);
-const getIsolatedCategoryPoints = (ids) => {
-  let pts1 = 0, pts2 = 0;
-  for (const id of ids) {
-    const entries = cache[id] || [];
-    const e1 = entries.find(e => e.username.toLowerCase() === p1.name.toLowerCase());
-    const e2 = entries.find(e => e.username.toLowerCase() === p2.name.toLowerCase());
-    if (e1) pts1 += getPoints(e1.rank);
-    if (e2) pts2 += getPoints(e2.rank);
+    const getCategoryPoints = (ids) => {
+      let pts1 = 0, pts2 = 0;
+      for (const id of ids) {
+        const c1 = p1Challenges.get(id);
+        const c2 = p2Challenges.get(id);
+        if (c1) pts1 += getPoints(c1.rank);
+        if (c2) pts2 += getPoints(c2.rank);
+      }
+      return [pts1, pts2];
+    };
+
+    const permIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => d.type === 'perm').map(([id]) => id);
+    const weeklyIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => d.type === 'kazz_easy' || d.type === 'kazz_hard').map(([id]) => id);
+    const raceIds = Object.entries(CHALLENGE_NAMES).filter(([id, d]) => {
+      if (d.type !== 'weekly_race') return false;
+      const match = d.name.match(/WeeklyRace(\d+)/i);
+      return match && parseInt(match[1]) >= 22;
+    }).map(([id]) => id);
+
+    const getIsolatedCategoryPoints = (ids) => {
+      let pts1 = 0, pts2 = 0;
+      for (const id of ids) {
+        const entries = cache[id] || [];
+        const e1 = entries.find(e => e.username.toLowerCase() === p1.name.toLowerCase());
+        const e2 = entries.find(e => e.username.toLowerCase() === p2.name.toLowerCase());
+        if (e1) pts1 += getPoints(e1.rank);
+        if (e2) pts2 += getPoints(e2.rank);
+      }
+      return [pts1, pts2];
+    };
+
+    const [p1PermPoints, p2PermPoints] = getCategoryPoints(permIds);
+    const [p1WeeklyPoints, p2WeeklyPoints] = getCategoryPoints(weeklyIds);
+    const [p1RacePoints, p2RacePoints] = getCategoryPoints(raceIds);
+    const [p1ZdriftPoints, p2ZdriftPoints] = getIsolatedCategoryPoints(ZDRIFT_IDS);
+    const [p1BoulderingPoints, p2BoulderingPoints] = getCategoryPoints(BOULDERING_IDS);
+    const [p1DribblePoints, p2DribblePoints] = getCategoryPoints(DRIBBLE_IDS);
+    const [p1DriftballPoints, p2DriftballPoints] = getCategoryPoints(DRIFTBALL_IDS);
+    const [p1ClubPoints, p2ClubPoints] = getCategoryPoints(CLUB_IDS);
+    const [p1ParkourPoints, p2ParkourPoints] = getCategoryPoints(PARKOUR_IDS);
+    const [p1IntroPoints, p2IntroPoints] = getCategoryPoints(INTRO_IDS);
+    const [p1WaysPoints, p2WaysPoints] = getCategoryPoints(WAYS_TO_CLIMB_IDS);
+    const [p1IntroWaysPoints, p2IntroWaysPoints] = getCategoryPoints(INTRO_WAYS_TO_CLIMB_IDS);
+
+    const cmp = (a, b, n1, n2) => a > b ? n1 : b > a ? n2 : 'Tied';
+
+    let p1Score = 0, p2Score = 0;
+    if (rank1 < rank2) p1Score++; else if (rank2 < rank1) p2Score++;
+    if (p1.totalPoints > p2.totalPoints) p1Score++; else if (p2.totalPoints > p1.totalPoints) p2Score++;
+    if (p1.wrCount > p2.wrCount) p1Score++; else if (p2.wrCount > p1.wrCount) p2Score++;
+    if (p1.top7Count > p2.top7Count) p1Score++; else if (p2.top7Count > p1.top7Count) p2Score++;
+    if (p1.top100Count > p2.top100Count) p1Score++; else if (p2.top100Count > p1.top100Count) p2Score++;
+    if (avg1 < avg2) p1Score++; else if (avg2 < avg1) p2Score++;
+    if (p1Wins > p2Wins) p1Score++; else if (p2Wins > p1Wins) p2Score++;
+    if (p1PermPoints > p2PermPoints) p1Score++; else if (p2PermPoints > p1PermPoints) p2Score++;
+    if (p1WeeklyPoints > p2WeeklyPoints) p1Score++; else if (p2WeeklyPoints > p1WeeklyPoints) p2Score++;
+    if (p1RacePoints > p2RacePoints) p1Score++; else if (p2RacePoints > p1RacePoints) p2Score++;
+    if (p1ZdriftPoints > p2ZdriftPoints) p1Score++; else if (p2ZdriftPoints > p1ZdriftPoints) p2Score++;
+    if (p1BoulderingPoints > p2BoulderingPoints) p1Score++; else if (p2BoulderingPoints > p1BoulderingPoints) p2Score++;
+    if (p1DribblePoints > p2DribblePoints) p1Score++; else if (p2DribblePoints > p1DribblePoints) p2Score++;
+    if (p1DriftballPoints > p2DriftballPoints) p1Score++; else if (p2DriftballPoints > p1DriftballPoints) p2Score++;
+    if (p1ClubPoints > p2ClubPoints) p1Score++; else if (p2ClubPoints > p1ClubPoints) p2Score++;
+    if (p1ParkourPoints > p2ParkourPoints) p1Score++; else if (p2ParkourPoints > p1ParkourPoints) p2Score++;
+    if (p1IntroPoints > p2IntroPoints) p1Score++; else if (p2IntroPoints > p1IntroPoints) p2Score++;
+    if (p1WaysPoints > p2WaysPoints) p1Score++; else if (p2WaysPoints > p1WaysPoints) p2Score++;
+    if (p1IntroWaysPoints > p2IntroWaysPoints) p1Score++; else if (p2IntroWaysPoints > p1IntroWaysPoints) p2Score++;
+
+    const winner = p1Score > p2Score ? p1.name : p2Score > p1Score ? p2.name : null;
+    const verdict = winner
+      ? `${formatPlayer(winner)} wins the 1v1 (${Math.max(p1Score, p2Score)}-${Math.min(p1Score, p2Score)})`
+      : `Dead even — this 1v1 is a tie`;
+
+    const description = [
+      `**MMR & Rank:** ${rInfo1.mmr.toLocaleString()} [${rInfo1.fullRank}] vs ${rInfo2.mmr.toLocaleString()} [${rInfo2.fullRank}]`,
+      `**Global Rank:** ${p1.name} #${rank1} vs ${p2.name} #${rank2}`,
+      `**Total Points:** ${p1.totalPoints.toLocaleString()} vs ${p2.totalPoints.toLocaleString()}`,
+      `**World Records:** ${p1.wrCount} vs ${p2.wrCount}`,
+      `**Top 7s:** ${p1.top7Count} vs ${p2.top7Count}`,
+      `**Top 100s:** ${p1.top100Count} vs ${p2.top100Count}`,
+      `**Avg Rank:** ${avg1.toFixed(1)} vs ${avg2.toFixed(1)}`,
+      `**Head to Head (${sharedIds.length} shared):** ${p1.name} ${p1Wins} — ${p2Wins} ${p2.name}${ties > 0 ? ` (${ties} tied)` : ''}`,
+      ``,
+      `**Perm:** ${p1PermPoints.toLocaleString()} vs ${p2PermPoints.toLocaleString()} — ${cmp(p1PermPoints, p2PermPoints, p1.name, p2.name)}`,
+      `**Weekly:** ${p1WeeklyPoints.toLocaleString()} vs ${p2WeeklyPoints.toLocaleString()} — ${cmp(p1WeeklyPoints, p2WeeklyPoints, p1.name, p2.name)}`,
+      `**Racing:** ${p1RacePoints.toLocaleString()} vs ${p2RacePoints.toLocaleString()} — ${cmp(p1RacePoints, p2RacePoints, p1.name, p2.name)}`,
+      `**ZDrift:** ${p1ZdriftPoints.toLocaleString()} vs ${p2ZdriftPoints.toLocaleString()} — ${cmp(p1ZdriftPoints, p2ZdriftPoints, p1.name, p2.name)}`,
+      `**Bouldering:** ${p1BoulderingPoints.toLocaleString()} vs ${p2BoulderingPoints.toLocaleString()} — ${cmp(p1BoulderingPoints, p2BoulderingPoints, p1.name, p2.name)}`,
+      `**Dribble:** ${p1DribblePoints.toLocaleString()} vs ${p2DribblePoints.toLocaleString()} — ${cmp(p1DribblePoints, p2DribblePoints, p1.name, p2.name)}`,
+      `**Driftball:** ${p1DriftballPoints.toLocaleString()} vs ${p2DriftballPoints.toLocaleString()} — ${cmp(p1DriftballPoints, p2DriftballPoints, p1.name, p2.name)}`,
+      `**Club:** ${p1ClubPoints.toLocaleString()} vs ${p2ClubPoints.toLocaleString()} — ${cmp(p1ClubPoints, p2ClubPoints, p1.name, p2.name)}`,
+      `**Parkour:** ${p1ParkourPoints.toLocaleString()} vs ${p2ParkourPoints.toLocaleString()} — ${cmp(p1ParkourPoints, p2ParkourPoints, p1.name, p2.name)}`,
+      `**Intro:** ${p1IntroPoints.toLocaleString()} vs ${p2IntroPoints.toLocaleString()} — ${cmp(p1IntroPoints, p2IntroPoints, p1.name, p2.name)}`,
+      `**Ways To Climb:** ${p1WaysPoints.toLocaleString()} vs ${p2WaysPoints.toLocaleString()} — ${cmp(p1WaysPoints, p2WaysPoints, p1.name, p2.name)}`,
+      `**Intro Ways To Climb:** ${p1IntroWaysPoints.toLocaleString()} vs ${p2IntroWaysPoints.toLocaleString()} — ${cmp(p1IntroWaysPoints, p2IntroWaysPoints, p1.name, p2.name)}`,
+      ``,
+      `**Verdict:** ${verdict}`,
+    ].join('\n');
+
+    const embed = new EmbedBuilder()
+      .setTitle(`1v1: ${p1.name} [${rInfo1.fullRank}] vs ${p2.name} [${rInfo2.fullRank}]`)
+      .setColor(winner === p1.name ? 0x5865f2 : winner === p2.name ? 0xe74c3c : 0x95a5a6)
+      .setDescription(description)
+      .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+
+    return interaction.editReply({ embeds: [embed] });
   }
-  return [pts1, pts2];
-};
-  const [p1PermPoints, p2PermPoints] = getCategoryPoints(permIds);
-  const [p1WeeklyPoints, p2WeeklyPoints] = getCategoryPoints(weeklyIds);
-  const [p1RacePoints, p2RacePoints] = getCategoryPoints(raceIds);
-  const [p1ZdriftPoints, p2ZdriftPoints] = getIsolatedCategoryPoints(ZDRIFT_IDS);
-  const [p1BoulderingPoints, p2BoulderingPoints] = getCategoryPoints(BOULDERING_IDS);
-  const [p1DribblePoints, p2DribblePoints] = getCategoryPoints(DRIBBLE_IDS);
-  const [p1DriftballPoints, p2DriftballPoints] = getCategoryPoints(DRIFTBALL_IDS);
-  const [p1ClubPoints, p2ClubPoints] = getCategoryPoints(CLUB_IDS);
-  const [p1ParkourPoints, p2ParkourPoints] = getCategoryPoints(PARKOUR_IDS);
-  const [p1IntroPoints, p2IntroPoints] = getCategoryPoints(INTRO_IDS);
-  const [p1WaysPoints, p2WaysPoints] = getCategoryPoints(WAYS_TO_CLIMB_IDS);
-  const [p1IntroWaysPoints, p2IntroWaysPoints] = getCategoryPoints(INTRO_WAYS_TO_CLIMB_IDS);
-
-  const cmp = (a, b, n1, n2) => a > b ? n1 : b > a ? n2 : 'Tied';
-
-  let p1Score = 0, p2Score = 0;
-  if (rank1 < rank2) p1Score++; else if (rank2 < rank1) p2Score++;
-  if (p1.totalPoints > p2.totalPoints) p1Score++; else if (p2.totalPoints > p1.totalPoints) p2Score++;
-  if (p1.wrCount > p2.wrCount) p1Score++; else if (p2.wrCount > p1.wrCount) p2Score++;
-  if (p1.top7Count > p2.top7Count) p1Score++; else if (p2.top7Count > p1.top7Count) p2Score++;
-  if (p1.top100Count > p2.top100Count) p1Score++; else if (p2.top100Count > p1.top100Count) p2Score++;
-  if (avg1 < avg2) p1Score++; else if (avg2 < avg1) p2Score++;
-  if (p1Wins > p2Wins) p1Score++; else if (p2Wins > p1Wins) p2Score++;
-  if (p1PermPoints > p2PermPoints) p1Score++; else if (p2PermPoints > p1PermPoints) p2Score++;
-  if (p1WeeklyPoints > p2WeeklyPoints) p1Score++; else if (p2WeeklyPoints > p1WeeklyPoints) p2Score++;
-  if (p1RacePoints > p2RacePoints) p1Score++; else if (p2RacePoints > p1RacePoints) p2Score++;
-  if (p1ZdriftPoints > p2ZdriftPoints) p1Score++; else if (p2ZdriftPoints > p1ZdriftPoints) p2Score++;
-  if (p1BoulderingPoints > p2BoulderingPoints) p1Score++; else if (p2BoulderingPoints > p1BoulderingPoints) p2Score++;
-  if (p1DribblePoints > p2DribblePoints) p1Score++; else if (p2DribblePoints > p1DribblePoints) p2Score++;
-  if (p1DriftballPoints > p2DriftballPoints) p1Score++; else if (p2DriftballPoints > p1DriftballPoints) p2Score++;
-  if (p1ClubPoints > p2ClubPoints) p1Score++; else if (p2ClubPoints > p1ClubPoints) p2Score++;
-  if (p1ParkourPoints > p2ParkourPoints) p1Score++; else if (p2ParkourPoints > p1ParkourPoints) p2Score++;
-  if (p1IntroPoints > p2IntroPoints) p1Score++; else if (p2IntroPoints > p1IntroPoints) p2Score++;
-  if (p1WaysPoints > p2WaysPoints) p1Score++; else if (p2WaysPoints > p1WaysPoints) p2Score++;
-  if (p1IntroWaysPoints > p2IntroWaysPoints) p1Score++; else if (p2IntroWaysPoints > p1IntroWaysPoints) p2Score++;
-
-  const winner = p1Score > p2Score ? p1.name : p2Score > p1Score ? p2.name : null;
-  const verdict = winner
-    ? `**${winner}** wins the 1v1 (${Math.max(p1Score, p2Score)}-${Math.min(p1Score, p2Score)})`
-    : `Dead even — this 1v1 is a tie`;
-
-  const description = [
-    `**Global Rank:** ${p1.name} #${rank1} vs ${p2.name} #${rank2}`,
-    `**Total Points:** ${p1.totalPoints.toLocaleString()} vs ${p2.totalPoints.toLocaleString()}`,
-    `**World Records:** ${p1.wrCount} vs ${p2.wrCount}`,
-    `**Top 7s:** ${p1.top7Count} vs ${p2.top7Count}`,
-    `**Top 100s:** ${p1.top100Count} vs ${p2.top100Count}`,
-    `**Avg Rank:** ${avg1.toFixed(1)} vs ${avg2.toFixed(1)}`,
-    `**Head to Head (${sharedIds.length} shared):** ${p1.name} ${p1Wins} — ${p2Wins} ${p2.name}${ties > 0 ? ` (${ties} tied)` : ''}`,
-    ``,
-    `**Perm:** ${p1PermPoints.toLocaleString()} vs ${p2PermPoints.toLocaleString()} — ${cmp(p1PermPoints, p2PermPoints, p1.name, p2.name)}`,
-    `**Weekly:** ${p1WeeklyPoints.toLocaleString()} vs ${p2WeeklyPoints.toLocaleString()} — ${cmp(p1WeeklyPoints, p2WeeklyPoints, p1.name, p2.name)}`,
-    `**Racing:** ${p1RacePoints.toLocaleString()} vs ${p2RacePoints.toLocaleString()} — ${cmp(p1RacePoints, p2RacePoints, p1.name, p2.name)}`,
-    `**ZDrift:** ${p1ZdriftPoints.toLocaleString()} vs ${p2ZdriftPoints.toLocaleString()} — ${cmp(p1ZdriftPoints, p2ZdriftPoints, p1.name, p2.name)}`,
-    `**Bouldering:** ${p1BoulderingPoints.toLocaleString()} vs ${p2BoulderingPoints.toLocaleString()} — ${cmp(p1BoulderingPoints, p2BoulderingPoints, p1.name, p2.name)}`,
-    `**Dribble:** ${p1DribblePoints.toLocaleString()} vs ${p2DribblePoints.toLocaleString()} — ${cmp(p1DribblePoints, p2DribblePoints, p1.name, p2.name)}`,
-    `**Driftball:** ${p1DriftballPoints.toLocaleString()} vs ${p2DriftballPoints.toLocaleString()} — ${cmp(p1DriftballPoints, p2DriftballPoints, p1.name, p2.name)}`,
-    `**Club:** ${p1ClubPoints.toLocaleString()} vs ${p2ClubPoints.toLocaleString()} — ${cmp(p1ClubPoints, p2ClubPoints, p1.name, p2.name)}`,
-    `**Parkour:** ${p1ParkourPoints.toLocaleString()} vs ${p2ParkourPoints.toLocaleString()} — ${cmp(p1ParkourPoints, p2ParkourPoints, p1.name, p2.name)}`,
-    `**Intro:** ${p1IntroPoints.toLocaleString()} vs ${p2IntroPoints.toLocaleString()} — ${cmp(p1IntroPoints, p2IntroPoints, p1.name, p2.name)}`,
-    `**Ways To Climb:** ${p1WaysPoints.toLocaleString()} vs ${p2WaysPoints.toLocaleString()} — ${cmp(p1WaysPoints, p2WaysPoints, p1.name, p2.name)}`,
-    `**Intro Ways To Climb:** ${p1IntroWaysPoints.toLocaleString()} vs ${p2IntroWaysPoints.toLocaleString()} — ${cmp(p1IntroWaysPoints, p2IntroWaysPoints, p1.name, p2.name)}`,
-    ``,
-    `**Verdict:** ${verdict}`,
-  ].join('\n');
-
-  const embed = new EmbedBuilder()
-    .setTitle(`1v1: ${p1.name} vs ${p2.name}`)
-    .setColor(winner === p1.name ? 0x5865f2 : winner === p2.name ? 0xe74c3c : 0x95a5a6)
-    .setDescription(description)
-    .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
-
-  return interaction.editReply({ embeds: [embed] });
-}
 
   else if (commandName === 'zdriftleaderboard') {
     await interaction.deferReply();
@@ -1826,7 +1841,7 @@ const getIsolatedCategoryPoints = (ids) => {
     const lines = slice.map((p, i) => {
       const rank = (page - 1) * perPage + i + 1;
       const avgRank = p.ranks.length ? (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1) : 'N/A';
-      return `#${rank} **${p.name}** — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
+      return `#${rank} ${formatPlayer(p.name)} — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
     });
 
     const embed = new EmbedBuilder()
@@ -1838,7 +1853,7 @@ const getIsolatedCategoryPoints = (ids) => {
     interaction.editReply({ embeds: [embed] });
   }
 
-if (commandName === 'summary') {
+  else if (commandName === 'summary') {
     await interaction.deferReply();
     const name = interaction.options.getString('name');
 
@@ -1913,30 +1928,6 @@ if (commandName === 'summary') {
         `**WRs:** ${player.wrCount} | **Top 7s:** ${player.top7Count} | **Top 100s:** ${player.top100Count}`,
       ].join('\n'))
       .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
-
-    return interaction.editReply({ embeds: [embed] });
-  }
-
-  else if (commandName === 'mmrleaderboard') {
-    await interaction.deferReply();
-    const page = interaction.options.getInteger('page') || 1;
-    const perPage = 30;
-    const allMmr = calculateAllMMR();
-    const totalPages = Math.ceil(allMmr.length / perPage);
-    const slice = allMmr.slice((page - 1) * perPage, page * perPage);
-
-    if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
-
-    const lines = slice.map((p, i) => {
-      const rank = (page - 1) * perPage + i + 1;
-      return `#${rank} ${formatPlayer(p.name)} — **${p.mmr.toLocaleString()} MMR** (${p.rankedCategories}/13)`;
-    });
-
-    const embed = new EmbedBuilder()
-      .setTitle('Overall MMR Leaderboard')
-      .setColor(0xf1c40f)
-      .setDescription(lines.join('\n'))
-      .setFooter({ text: `Page ${page}/${totalPages} • Max MMR: 7,000 • Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
 
     return interaction.editReply({ embeds: [embed] });
   }
@@ -2108,7 +2099,7 @@ else if (commandName === 'dribbletop7leaderboard') {
   if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
   const lines = slice.map((p, i) => {
     const rank = (page - 1) * perPage + i + 1;
-    return `#${rank} **${p.name}** — Top7: ${p.top7Count} | 1st: ${p.wrCount} | Top100: ${p.top100Count}`;
+    return `#${rank} ${formatPlayer(p.name)} — Top7: ${p.top7Count} | 1st: ${p.wrCount} | Top100: ${p.top100Count}`;
   });
   const embed = new EmbedBuilder()
     .setTitle('Dribble — Top 7 Leaderboard')
@@ -2145,7 +2136,7 @@ else if (commandName === 'dribblewrleaderboard') {
   if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
   const lines = slice.map((p, i) => {
     const rank = (page - 1) * perPage + i + 1;
-    return `#${rank} **${p.name}** — WRs: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count}`;
+    return `#${rank} ${formatPlayer(p.name)} — WRs: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count}`;
   });
   const embed = new EmbedBuilder()
     .setTitle('Dribble — World Record Leaderboard')
@@ -2161,6 +2152,7 @@ else if (commandName === 'dribbleimprove') {
   const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name)
     || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name));
   if (!player) return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
+  const rankInfo = getPlayerRankInfo(player.name);
   const found = new Set();
   for (const id of DRIBBLE_IDS) {
     const entries = cache[id];
@@ -2168,12 +2160,12 @@ else if (commandName === 'dribbleimprove') {
     if (entries.find(e => e.username && e.username.toLowerCase() === player.name.toLowerCase())) found.add(id);
   }
   const missing = DRIBBLE_IDS.filter(id => !found.has(id));
-  if (missing.length === 0) return interaction.editReply(`**${player.name}** has a top 100 entry on every dribble challenge!`);
+  if (missing.length === 0) return interaction.editReply(`${formatPlayer(player.name)} has a top 100 entry on every dribble challenge!`);
   const lines = missing.map(id => `- **${getChallengeName(id)}**`);
-  const description = [`**${player.name}** has no top 100 entry on ${missing.length} dribble challenge${missing.length === 1 ? '' : 's'}:`, ``, lines.join('\n')].join('\n');
+  const description = [`${formatPlayer(player.name)} has no top 100 entry on ${missing.length} dribble challenge${missing.length === 1 ? '' : 's'}:`, ``, lines.join('\n')].join('\n');
   const embed = new EmbedBuilder()
-    .setTitle(`${player.name} — Dribble Challenges to Improve`)
-    .setColor(0xf5a623)
+    .setTitle(`${player.name} [${rankInfo.fullRank}] — Dribble Challenges to Improve`)
+    .setColor(rankInfo.color)
     .setDescription(description.slice(0, 4096))
     .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
   return interaction.editReply({ embeds: [embed] });
@@ -2208,7 +2200,7 @@ else if (commandName === 'driftballleaderboard') {
   const lines = slice.map((p, i) => {
     const rank = (page - 1) * perPage + i + 1;
     const avgRank = p.ranks.length ? (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1) : 'N/A';
-    return `#${rank} **${p.name}** — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
+    return `#${rank} ${formatPlayer(p.name)} — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
   });
   const embed = new EmbedBuilder()
     .setTitle('Driftball Leaderboard')
@@ -2245,7 +2237,7 @@ else if (commandName === 'driftballtop7leaderboard') {
   if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
   const lines = slice.map((p, i) => {
     const rank = (page - 1) * perPage + i + 1;
-    return `#${rank} **${p.name}** — Top7: ${p.top7Count} | 1st: ${p.wrCount} | Top100: ${p.top100Count}`;
+    return `#${rank} ${formatPlayer(p.name)} — Top7: ${p.top7Count} | 1st: ${p.wrCount} | Top100: ${p.top100Count}`;
   });
   const embed = new EmbedBuilder()
     .setTitle('Driftball — Top 7 Leaderboard')
@@ -2282,7 +2274,7 @@ else if (commandName === 'driftballwrleaderboard') {
   if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
   const lines = slice.map((p, i) => {
     const rank = (page - 1) * perPage + i + 1;
-    return `#${rank} **${p.name}** — WRs: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count}`;
+    return `#${rank} ${formatPlayer(p.name)} — WRs: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count}`;
   });
   const embed = new EmbedBuilder()
     .setTitle('Driftball — World Record Leaderboard')
@@ -2298,6 +2290,7 @@ else if (commandName === 'driftballimprove') {
   const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name)
     || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name));
   if (!player) return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
+  const rankInfo = getPlayerRankInfo(player.name);
   const found = new Set();
   for (const id of DRIFTBALL_IDS) {
     const entries = cache[id];
@@ -2305,12 +2298,12 @@ else if (commandName === 'driftballimprove') {
     if (entries.find(e => e.username && e.username.toLowerCase() === player.name.toLowerCase())) found.add(id);
   }
   const missing = DRIFTBALL_IDS.filter(id => !found.has(id));
-  if (missing.length === 0) return interaction.editReply(`**${player.name}** has a top 100 entry on every driftball challenge!`);
+  if (missing.length === 0) return interaction.editReply(`${formatPlayer(player.name)} has a top 100 entry on every driftball challenge!`);
   const lines = missing.map(id => `- **${getChallengeName(id)}**`);
-  const description = [`**${player.name}** has no top 100 entry on ${missing.length} driftball challenge${missing.length === 1 ? '' : 's'}:`, ``, lines.join('\n')].join('\n');
+  const description = [`${formatPlayer(player.name)} has no top 100 entry on ${missing.length} driftball challenge${missing.length === 1 ? '' : 's'}:`, ``, lines.join('\n')].join('\n');
   const embed = new EmbedBuilder()
-    .setTitle(`${player.name} — Driftball Challenges to Improve`)
-    .setColor(0xf5a623)
+    .setTitle(`${player.name} [${rankInfo.fullRank}] — Driftball Challenges to Improve`)
+    .setColor(rankInfo.color)
     .setDescription(description.slice(0, 4096))
     .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
   return interaction.editReply({ embeds: [embed] });
@@ -2345,7 +2338,7 @@ else if (commandName === 'clubleaderboard') {
   const lines = slice.map((p, i) => {
     const rank = (page - 1) * perPage + i + 1;
     const avgRank = p.ranks.length ? (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1) : 'N/A';
-    return `#${rank} **${p.name}** — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
+    return `#${rank} ${formatPlayer(p.name)} — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
   });
   const embed = new EmbedBuilder()
     .setTitle('Club Leaderboard')
@@ -2382,7 +2375,7 @@ else if (commandName === 'clubtop7leaderboard') {
   if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
   const lines = slice.map((p, i) => {
     const rank = (page - 1) * perPage + i + 1;
-    return `#${rank} **${p.name}** — Top7: ${p.top7Count} | 1st: ${p.wrCount} | Top100: ${p.top100Count}`;
+    return `#${rank} ${formatPlayer(p.name)} — Top7: ${p.top7Count} | 1st: ${p.wrCount} | Top100: ${p.top100Count}`;
   });
   const embed = new EmbedBuilder()
     .setTitle('Club — Top 7 Leaderboard')
@@ -2419,7 +2412,7 @@ else if (commandName === 'clubwrleaderboard') {
   if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
   const lines = slice.map((p, i) => {
     const rank = (page - 1) * perPage + i + 1;
-    return `#${rank} **${p.name}** — WRs: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count}`;
+    return `#${rank} ${formatPlayer(p.name)} — WRs: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count}`;
   });
   const embed = new EmbedBuilder()
     .setTitle('Club — World Record Leaderboard')
@@ -2435,6 +2428,7 @@ else if (commandName === 'clubimprove') {
   const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name)
     || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name));
   if (!player) return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
+  const rankInfo = getPlayerRankInfo(player.name);
   const found = new Set();
   for (const id of CLUB_IDS) {
     const entries = cache[id];
@@ -2442,12 +2436,12 @@ else if (commandName === 'clubimprove') {
     if (entries.find(e => e.username && e.username.toLowerCase() === player.name.toLowerCase())) found.add(id);
   }
   const missing = CLUB_IDS.filter(id => !found.has(id));
-  if (missing.length === 0) return interaction.editReply(`**${player.name}** has a top 100 entry on every club challenge!`);
+  if (missing.length === 0) return interaction.editReply(`${formatPlayer(player.name)} has a top 100 entry on every club challenge!`);
   const lines = missing.map(id => `- **${getChallengeName(id)}**`);
-  const description = [`**${player.name}** has no top 100 entry on ${missing.length} club challenge${missing.length === 1 ? '' : 's'}:`, ``, lines.join('\n')].join('\n');
+  const description = [`${formatPlayer(player.name)} has no top 100 entry on ${missing.length} club challenge${missing.length === 1 ? '' : 's'}:`, ``, lines.join('\n')].join('\n');
   const embed = new EmbedBuilder()
-    .setTitle(`${player.name} — Club Challenges to Improve`)
-    .setColor(0xf5a623)
+    .setTitle(`${player.name} [${rankInfo.fullRank}] — Club Challenges to Improve`)
+    .setColor(rankInfo.color)
     .setDescription(description.slice(0, 4096))
     .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
   return interaction.editReply({ embeds: [embed] });
@@ -2482,7 +2476,7 @@ else if (commandName === 'parkourleaderboard') {
   const lines = slice.map((p, i) => {
     const rank = (page - 1) * perPage + i + 1;
     const avgRank = p.ranks.length ? (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1) : 'N/A';
-    return `#${rank} **${p.name}** — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
+    return `#${rank} ${formatPlayer(p.name)} — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
   });
   const embed = new EmbedBuilder()
     .setTitle('Parkour Leaderboard')
@@ -2519,7 +2513,7 @@ else if (commandName === 'parkourtop7leaderboard') {
   if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
   const lines = slice.map((p, i) => {
     const rank = (page - 1) * perPage + i + 1;
-    return `#${rank} **${p.name}** — Top7: ${p.top7Count} | 1st: ${p.wrCount} | Top100: ${p.top100Count}`;
+    return `#${rank} ${formatPlayer(p.name)} — Top7: ${p.top7Count} | 1st: ${p.wrCount} | Top100: ${p.top100Count}`;
   });
   const embed = new EmbedBuilder()
     .setTitle('Parkour — Top 7 Leaderboard')
@@ -2556,7 +2550,7 @@ else if (commandName === 'parkourwrleaderboard') {
   if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
   const lines = slice.map((p, i) => {
     const rank = (page - 1) * perPage + i + 1;
-    return `#${rank} **${p.name}** — WRs: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count}`;
+    return `#${rank} ${formatPlayer(p.name)} — WRs: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count}`;
   });
   const embed = new EmbedBuilder()
     .setTitle('Parkour — World Record Leaderboard')
@@ -2572,6 +2566,7 @@ else if (commandName === 'parkourimprove') {
   const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name)
     || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name));
   if (!player) return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
+  const rankInfo = getPlayerRankInfo(player.name);
   const found = new Set();
   for (const id of PARKOUR_IDS) {
     const entries = cache[id];
@@ -2579,12 +2574,12 @@ else if (commandName === 'parkourimprove') {
     if (entries.find(e => e.username && e.username.toLowerCase() === player.name.toLowerCase())) found.add(id);
   }
   const missing = PARKOUR_IDS.filter(id => !found.has(id));
-  if (missing.length === 0) return interaction.editReply(`**${player.name}** has a top 100 entry on every parkour challenge!`);
+  if (missing.length === 0) return interaction.editReply(`${formatPlayer(player.name)} has a top 100 entry on every parkour challenge!`);
   const lines = missing.map(id => `- **${getChallengeName(id)}**`);
-  const description = [`**${player.name}** has no top 100 entry on ${missing.length} parkour challenge${missing.length === 1 ? '' : 's'}:`, ``, lines.join('\n')].join('\n');
+  const description = [`${formatPlayer(player.name)} has no top 100 entry on ${missing.length} parkour challenge${missing.length === 1 ? '' : 's'}:`, ``, lines.join('\n')].join('\n');
   const embed = new EmbedBuilder()
-    .setTitle(`${player.name} — Parkour Challenges to Improve`)
-    .setColor(0xf5a623)
+    .setTitle(`${player.name} [${rankInfo.fullRank}] — Parkour Challenges to Improve`)
+    .setColor(rankInfo.color)
     .setDescription(description.slice(0, 4096))
     .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
   return interaction.editReply({ embeds: [embed] });
@@ -2619,7 +2614,7 @@ else if (commandName === 'introleaderboard') {
   const lines = slice.map((p, i) => {
     const rank = (page - 1) * perPage + i + 1;
     const avgRank = p.ranks.length ? (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1) : 'N/A';
-    return `#${rank} **${p.name}** — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
+    return `#${rank} ${formatPlayer(p.name)} — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
   });
   const embed = new EmbedBuilder()
     .setTitle('Intro Leaderboard')
@@ -2656,7 +2651,7 @@ else if (commandName === 'introtop7leaderboard') {
   if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
   const lines = slice.map((p, i) => {
     const rank = (page - 1) * perPage + i + 1;
-    return `#${rank} **${p.name}** — Top7: ${p.top7Count} | 1st: ${p.wrCount} | Top100: ${p.top100Count}`;
+    return `#${rank} ${formatPlayer(p.name)} — Top7: ${p.top7Count} | 1st: ${p.wrCount} | Top100: ${p.top100Count}`;
   });
   const embed = new EmbedBuilder()
     .setTitle('Intro — Top 7 Leaderboard')
@@ -2693,7 +2688,7 @@ else if (commandName === 'introwrleaderboard') {
   if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
   const lines = slice.map((p, i) => {
     const rank = (page - 1) * perPage + i + 1;
-    return `#${rank} **${p.name}** — WRs: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count}`;
+    return `#${rank} ${formatPlayer(p.name)} — WRs: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count}`;
   });
   const embed = new EmbedBuilder()
     .setTitle('Intro — World Record Leaderboard')
@@ -2709,6 +2704,7 @@ else if (commandName === 'introimprove') {
   const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name)
     || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name));
   if (!player) return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
+  const rankInfo = getPlayerRankInfo(player.name);
   const found = new Set();
   for (const id of INTRO_IDS) {
     const entries = cache[id];
@@ -2716,12 +2712,12 @@ else if (commandName === 'introimprove') {
     if (entries.find(e => e.username && e.username.toLowerCase() === player.name.toLowerCase())) found.add(id);
   }
   const missing = INTRO_IDS.filter(id => !found.has(id));
-  if (missing.length === 0) return interaction.editReply(`**${player.name}** has a top 100 entry on every intro challenge!`);
+  if (missing.length === 0) return interaction.editReply(`${formatPlayer(player.name)} has a top 100 entry on every intro challenge!`);
   const lines = missing.map(id => `- **${getChallengeName(id)}**`);
-  const description = [`**${player.name}** has no top 100 entry on ${missing.length} intro challenge${missing.length === 1 ? '' : 's'}:`, ``, lines.join('\n')].join('\n');
+  const description = [`${formatPlayer(player.name)} has no top 100 entry on ${missing.length} intro challenge${missing.length === 1 ? '' : 's'}:`, ``, lines.join('\n')].join('\n');
   const embed = new EmbedBuilder()
-    .setTitle(`${player.name} — Intro Challenges to Improve`)
-    .setColor(0xf5a623)
+    .setTitle(`${player.name} [${rankInfo.fullRank}] — Intro Challenges to Improve`)
+    .setColor(rankInfo.color)
     .setDescription(description.slice(0, 4096))
     .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
   return interaction.editReply({ embeds: [embed] });
@@ -2756,7 +2752,7 @@ else if (commandName === 'waystoclimbleaderboard') {
   const lines = slice.map((p, i) => {
     const rank = (page - 1) * perPage + i + 1;
     const avgRank = p.ranks.length ? (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1) : 'N/A';
-    return `#${rank} **${p.name}** — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
+    return `#${rank} ${formatPlayer(p.name)} — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
   });
   const embed = new EmbedBuilder()
     .setTitle('Ways To Climb Leaderboard')
@@ -2793,7 +2789,7 @@ else if (commandName === 'waystoclimbtop7leaderboard') {
   if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
   const lines = slice.map((p, i) => {
     const rank = (page - 1) * perPage + i + 1;
-    return `#${rank} **${p.name}** — Top7: ${p.top7Count} | 1st: ${p.wrCount} | Top100: ${p.top100Count}`;
+    return `#${rank} ${formatPlayer(p.name)} — Top7: ${p.top7Count} | 1st: ${p.wrCount} | Top100: ${p.top100Count}`;
   });
   const embed = new EmbedBuilder()
     .setTitle('Ways To Climb — Top 7 Leaderboard')
@@ -2830,7 +2826,7 @@ else if (commandName === 'waystoclimbwrleaderboard') {
   if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
   const lines = slice.map((p, i) => {
     const rank = (page - 1) * perPage + i + 1;
-    return `#${rank} **${p.name}** — WRs: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count}`;
+    return `#${rank} ${formatPlayer(p.name)} — WRs: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count}`;
   });
   const embed = new EmbedBuilder()
     .setTitle('Ways To Climb — World Record Leaderboard')
@@ -2846,6 +2842,7 @@ else if (commandName === 'waystoclimbimprove') {
   const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name)
     || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name));
   if (!player) return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
+  const rankInfo = getPlayerRankInfo(player.name);
   const found = new Set();
   for (const id of WAYS_TO_CLIMB_IDS) {
     const entries = cache[id];
@@ -2853,12 +2850,12 @@ else if (commandName === 'waystoclimbimprove') {
     if (entries.find(e => e.username && e.username.toLowerCase() === player.name.toLowerCase())) found.add(id);
   }
   const missing = WAYS_TO_CLIMB_IDS.filter(id => !found.has(id));
-  if (missing.length === 0) return interaction.editReply(`**${player.name}** has a top 100 entry on every Ways To Climb challenge!`);
+  if (missing.length === 0) return interaction.editReply(`${formatPlayer(player.name)} has a top 100 entry on every Ways To Climb challenge!`);
   const lines = missing.map(id => `- **${getChallengeName(id)}**`);
-  const description = [`**${player.name}** has no top 100 entry on ${missing.length} Ways To Climb challenge${missing.length === 1 ? '' : 's'}:`, ``, lines.join('\n')].join('\n');
+  const description = [`${formatPlayer(player.name)} has no top 100 entry on ${missing.length} Ways To Climb challenge${missing.length === 1 ? '' : 's'}:`, ``, lines.join('\n')].join('\n');
   const embed = new EmbedBuilder()
-    .setTitle(`${player.name} — Ways To Climb Challenges to Improve`)
-    .setColor(0xf5a623)
+    .setTitle(`${player.name} [${rankInfo.fullRank}] — Ways To Climb Challenges to Improve`)
+    .setColor(rankInfo.color)
     .setDescription(description.slice(0, 4096))
     .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
   return interaction.editReply({ embeds: [embed] });
@@ -2893,7 +2890,7 @@ else if (commandName === 'introwaystoclimbleaderboard') {
   const lines = slice.map((p, i) => {
     const rank = (page - 1) * perPage + i + 1;
     const avgRank = p.ranks.length ? (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1) : 'N/A';
-    return `#${rank} **${p.name}** — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
+    return `#${rank} ${formatPlayer(p.name)} — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
   });
   const embed = new EmbedBuilder()
     .setTitle('Intro Ways To Climb Leaderboard')
@@ -2930,7 +2927,7 @@ else if (commandName === 'introwaystoclimbtop7leaderboard') {
   if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
   const lines = slice.map((p, i) => {
     const rank = (page - 1) * perPage + i + 1;
-    return `#${rank} **${p.name}** — Top7: ${p.top7Count} | 1st: ${p.wrCount} | Top100: ${p.top100Count}`;
+    return `#${rank} ${formatPlayer(p.name)} — Top7: ${p.top7Count} | 1st: ${p.wrCount} | Top100: ${p.top100Count}`;
   });
   const embed = new EmbedBuilder()
     .setTitle('Intro Ways To Climb — Top 7 Leaderboard')
@@ -2967,7 +2964,7 @@ else if (commandName === 'introwaystoclimbwrleaderboard') {
   if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
   const lines = slice.map((p, i) => {
     const rank = (page - 1) * perPage + i + 1;
-    return `#${rank} **${p.name}** — WRs: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count}`;
+    return `#${rank} ${formatPlayer(p.name)} — WRs: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count}`;
   });
   const embed = new EmbedBuilder()
     .setTitle('Intro Ways To Climb — World Record Leaderboard')
@@ -2983,6 +2980,7 @@ else if (commandName === 'introwaystoclimbimprove') {
   const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name)
     || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name));
   if (!player) return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
+  const rankInfo = getPlayerRankInfo(player.name);
   const found = new Set();
   for (const id of INTRO_WAYS_TO_CLIMB_IDS) {
     const entries = cache[id];
@@ -2990,12 +2988,12 @@ else if (commandName === 'introwaystoclimbimprove') {
     if (entries.find(e => e.username && e.username.toLowerCase() === player.name.toLowerCase())) found.add(id);
   }
   const missing = INTRO_WAYS_TO_CLIMB_IDS.filter(id => !found.has(id));
-  if (missing.length === 0) return interaction.editReply(`**${player.name}** has a top 100 entry on every Intro Ways To Climb challenge!`);
+  if (missing.length === 0) return interaction.editReply(`${formatPlayer(player.name)} has a top 100 entry on every Intro Ways To Climb challenge!`);
   const lines = missing.map(id => `- **${getChallengeName(id)}**`);
-  const description = [`**${player.name}** has no top 100 entry on ${missing.length} Intro Ways To Climb challenge${missing.length === 1 ? '' : 's'}:`, ``, lines.join('\n')].join('\n');
+  const description = [`${formatPlayer(player.name)} has no top 100 entry on ${missing.length} Intro Ways To Climb challenge${missing.length === 1 ? '' : 's'}:`, ``, lines.join('\n')].join('\n');
   const embed = new EmbedBuilder()
-    .setTitle(`${player.name} — Intro Ways To Climb Challenges to Improve`)
-    .setColor(0xf5a623)
+    .setTitle(`${player.name} [${rankInfo.fullRank}] — Intro Ways To Climb Challenges to Improve`)
+    .setColor(rankInfo.color)
     .setDescription(description.slice(0, 4096))
     .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
   return interaction.editReply({ embeds: [embed] });
@@ -3028,7 +3026,7 @@ else if (commandName === 'boulderingleaderboard') {
   const lines = slice.map((p, i) => {
     const rank = (page - 1) * perPage + i + 1;
     const avgRank = p.ranks.length ? (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1) : 'N/A';
-    return `#${rank} **${p.name}** — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
+    return `#${rank} ${formatPlayer(p.name)} — ${p.totalPoints.toLocaleString()} pts | 1st: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count} | Avg: ${avgRank}`;
   });
   const embed = new EmbedBuilder()
     .setTitle('Bouldering Leaderboard')
@@ -3065,7 +3063,7 @@ else if (commandName === 'boulderingtop7leaderboard') {
   if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
   const lines = slice.map((p, i) => {
     const rank = (page - 1) * perPage + i + 1;
-    return `#${rank} **${p.name}** — Top7: ${p.top7Count} | 1st: ${p.wrCount} | Top100: ${p.top100Count}`;
+    return `#${rank} ${formatPlayer(p.name)} — Top7: ${p.top7Count} | 1st: ${p.wrCount} | Top100: ${p.top100Count}`;
   });
   const embed = new EmbedBuilder()
     .setTitle('Bouldering — Top 7 Leaderboard')
@@ -3102,7 +3100,7 @@ else if (commandName === 'boulderingwrleaderboard') {
   if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
   const lines = slice.map((p, i) => {
     const rank = (page - 1) * perPage + i + 1;
-    return `#${rank} **${p.name}** — WRs: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count}`;
+    return `#${rank} ${formatPlayer(p.name)} — WRs: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count}`;
   });
   const embed = new EmbedBuilder()
     .setTitle('Bouldering — World Record Leaderboard')
@@ -3118,6 +3116,7 @@ else if (commandName === 'boulderingimprove') {
   const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name)
     || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name));
   if (!player) return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
+  const rankInfo = getPlayerRankInfo(player.name);
   const found = new Set();
   for (const id of BOULDERING_IDS) {
     const entries = cache[id];
@@ -3125,616 +3124,107 @@ else if (commandName === 'boulderingimprove') {
     if (entries.find(e => e.username && e.username.toLowerCase() === player.name.toLowerCase())) found.add(id);
   }
   const missing = BOULDERING_IDS.filter(id => !found.has(id));
-  if (missing.length === 0) return interaction.editReply(`**${player.name}** has a top 100 entry on every bouldering challenge!`);
+  if (missing.length === 0) return interaction.editReply(`${formatPlayer(player.name)} has a top 100 entry on every bouldering challenge!`);
   const lines = missing.map(id => `- **${getChallengeName(id)}**`);
-  const description = [`**${player.name}** has no top 100 entry on ${missing.length} bouldering challenge${missing.length === 1 ? '' : 's'}:`, ``, lines.join('\n')].join('\n');
+  const description = [`${formatPlayer(player.name)} has no top 100 entry on ${missing.length} bouldering challenge${missing.length === 1 ? '' : 's'}:`, ``, lines.join('\n')].join('\n');
   const embed = new EmbedBuilder()
-    .setTitle(`${player.name} — Bouldering Challenges to Improve`)
-    .setColor(0x8B4513)
+    .setTitle(`${player.name} [${rankInfo.fullRank}] — Bouldering Challenges to Improve`)
+    .setColor(rankInfo.color)
     .setDescription(description.slice(0, 4096))
     .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
   return interaction.editReply({ embeds: [embed] });
 }
-else if (commandName === 'ask') {
+
+  else if (commandName === 'zdrifttop7leaderboard') {
     await interaction.deferReply();
-    const question = interaction.options.getString('question');
-    const userId = interaction.user.id;
+    const page = interaction.options.getInteger('page') || 1;
+    const perPage = 30;
 
-    const tools = [
-  // Player data
-{
-    type: 'function',
-    function: {
-      name: 'get_player_stats',
-      description: 'Get full global stats for a player by name including rank, points, WRs, top7s, top100s, avg rank',
-      parameters: { type: 'object', properties: { player_name: { type: 'string', description: 'The player username' } }, required: ['player_name'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_player_challenges',
-      description: 'Get all challenge appearances for a player, sorted by best rank',
-      parameters: { type: 'object', properties: { player_name: { type: 'string', description: 'The player username' } }, required: ['player_name'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_player_wrs',
-      description: 'Get all world records held by a player',
-      parameters: { type: 'object', properties: { player_name: { type: 'string', description: 'The player username' } }, required: ['player_name'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_player_missing_challenges',
-      description: 'Get all challenges a player has no top 100 entry on',
-      parameters: { type: 'object', properties: { player_name: { type: 'string', description: 'The player username' } }, required: ['player_name'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_player_perm_stats',
-      description: 'Get perm challenge only stats for a player',
-      parameters: { type: 'object', properties: { player_name: { type: 'string', description: 'The player username' } }, required: ['player_name'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_player_weekly_stats',
-      description: 'Get Kazzmania weekly challenge only stats for a player',
-      parameters: { type: 'object', properties: { player_name: { type: 'string', description: 'The player username' } }, required: ['player_name'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_player_racing_stats',
-      description: 'Get racing challenge only stats for a player',
-      parameters: { type: 'object', properties: { player_name: { type: 'string', description: 'The player username' } }, required: ['player_name'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_player_zdrift_stats',
-      description: 'Get ZDrift challenge only stats for a player',
-      parameters: { type: 'object', properties: { player_name: { type: 'string', description: 'The player username' } }, required: ['player_name'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_player_bouldering_stats',
-      description: 'Get Bouldering challenge only stats for a player',
-      parameters: { type: 'object', properties: { player_name: { type: 'string', description: 'The player username' } }, required: ['player_name'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_player_dribble_stats',
-      description: 'Get Dribble challenge only stats for a player',
-      parameters: { type: 'object', properties: { player_name: { type: 'string', description: 'The player username' } }, required: ['player_name'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_player_driftball_stats',
-      description: 'Get Driftball challenge only stats for a player',
-      parameters: { type: 'object', properties: { player_name: { type: 'string', description: 'The player username' } }, required: ['player_name'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_player_club_stats',
-      description: 'Get Club challenge only stats for a player',
-      parameters: { type: 'object', properties: { player_name: { type: 'string', description: 'The player username' } }, required: ['player_name'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_player_parkour_stats',
-      description: 'Get Parkour challenge only stats for a player',
-      parameters: { type: 'object', properties: { player_name: { type: 'string', description: 'The player username' } }, required: ['player_name'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_player_intro_stats',
-      description: 'Get Intro challenge only stats for a player',
-      parameters: { type: 'object', properties: { player_name: { type: 'string', description: 'The player username' } }, required: ['player_name'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_player_ways_to_climb_stats',
-      description: 'Get Ways To Climb challenge only stats for a player',
-      parameters: { type: 'object', properties: { player_name: { type: 'string', description: 'The player username' } }, required: ['player_name'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_player_intro_ways_to_climb_stats',
-      description: 'Get Intro Ways To Climb challenge only stats for a player',
-      parameters: { type: 'object', properties: { player_name: { type: 'string', description: 'The player username' } }, required: ['player_name'] }
-    }
-  },
-  // Leaderboards
-  {
-    type: 'function',
-    function: {
-      name: 'get_leaderboard',
-      description: 'Get the global leaderboard ranked by points',
-      parameters: { type: 'object', properties: { page: { type: 'integer', description: 'Page number, 30 players per page' } }, required: ['page'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_perm_leaderboard',
-      description: 'Get the permanent challenges leaderboard',
-      parameters: { type: 'object', properties: { page: { type: 'integer', description: 'Page number' } }, required: ['page'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_weekly_leaderboard',
-      description: 'Get the Kazzmania weekly challenges leaderboard',
-      parameters: { type: 'object', properties: { page: { type: 'integer', description: 'Page number' } }, required: ['page'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_racing_leaderboard',
-      description: 'Get the racing challenges leaderboard (Race 22+)',
-      parameters: { type: 'object', properties: { page: { type: 'integer', description: 'Page number' } }, required: ['page'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_zdrift_leaderboard',
-      description: 'Get the ZDrift leaderboard',
-      parameters: { type: 'object', properties: { page: { type: 'integer', description: 'Page number' } }, required: ['page'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_bouldering_leaderboard',
-      description: 'Get the Bouldering leaderboard',
-      parameters: { type: 'object', properties: { page: { type: 'integer', description: 'Page number' } }, required: ['page'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_dribble_leaderboard',
-      description: 'Get the Dribble leaderboard',
-      parameters: { type: 'object', properties: { page: { type: 'integer', description: 'Page number' } }, required: ['page'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_driftball_leaderboard',
-      description: 'Get the Driftball leaderboard',
-      parameters: { type: 'object', properties: { page: { type: 'integer', description: 'Page number' } }, required: ['page'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_club_leaderboard',
-      description: 'Get the Club leaderboard',
-      parameters: { type: 'object', properties: { page: { type: 'integer', description: 'Page number' } }, required: ['page'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_parkour_leaderboard',
-      description: 'Get the Parkour leaderboard',
-      parameters: { type: 'object', properties: { page: { type: 'integer', description: 'Page number' } }, required: ['page'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_intro_leaderboard',
-      description: 'Get the Intro leaderboard',
-      parameters: { type: 'object', properties: { page: { type: 'integer', description: 'Page number' } }, required: ['page'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_ways_to_climb_leaderboard',
-      description: 'Get the Ways To Climb leaderboard',
-      parameters: { type: 'object', properties: { page: { type: 'integer', description: 'Page number' } }, required: ['page'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_intro_ways_to_climb_leaderboard',
-      description: 'Get the Intro Ways To Climb leaderboard',
-      parameters: { type: 'object', properties: { page: { type: 'integer', description: 'Page number' } }, required: ['page'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_top7_leaderboard',
-      description: 'Get the leaderboard ranked by number of top 7 finishes',
-      parameters: { type: 'object', properties: { page: { type: 'integer', description: 'Page number' } }, required: ['page'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_wr_leaderboard',
-      description: 'Get the leaderboard ranked by number of world records',
-      parameters: { type: 'object', properties: { page: { type: 'integer', description: 'Page number' } }, required: ['page'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_avg_leaderboard',
-      description: 'Get the leaderboard ranked by best average rank (top 100 players only)',
-      parameters: { type: 'object', properties: { page: { type: 'integer', description: 'Page number' } }, required: ['page'] }
-    }
-  },
-  // Challenges
-  {
-    type: 'function',
-    function: {
-      name: 'get_challenge_leaderboard',
-      description: 'Get the top 20 for a specific challenge by name',
-      parameters: { type: 'object', properties: { challenge_name: { type: 'string', description: 'The name of the challenge e.g. Verting, Wall Run' } }, required: ['challenge_name'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_wr_holders',
-      description: 'Get the world record holder and time for every named challenge',
-      parameters: { type: 'object', properties: {}, required: [] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_challenge_info',
-      description: 'Get name, type, WR holder and WR time for a specific challenge',
-      parameters: { type: 'object', properties: { challenge_name: { type: 'string', description: 'The name of the challenge' } }, required: ['challenge_name'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_all_challenges',
-      description: 'Get a list of all named challenges',
-      parameters: { type: 'object', properties: {}, required: [] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_perm_challenges',
-      description: 'Get a list of all permanent challenges',
-      parameters: { type: 'object', properties: {}, required: [] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_weekly_challenges',
-      description: 'Get a list of all Kazzmania weekly challenges',
-      parameters: { type: 'object', properties: {}, required: [] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_racing_challenges',
-      description: 'Get a list of all racing challenges',
-      parameters: { type: 'object', properties: {}, required: [] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_zdrift_challenges',
-      description: 'Get a list of all ZDrift challenges',
-      parameters: { type: 'object', properties: {}, required: [] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_bouldering_challenges',
-      description: 'Get a list of all Bouldering challenges',
-      parameters: { type: 'object', properties: {}, required: [] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_dribble_challenges',
-      description: 'Get a list of all Dribble challenges',
-      parameters: { type: 'object', properties: {}, required: [] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_driftball_challenges',
-      description: 'Get a list of all Driftball challenges',
-      parameters: { type: 'object', properties: {}, required: [] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_club_challenges',
-      description: 'Get a list of all Club challenges',
-      parameters: { type: 'object', properties: {}, required: [] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_parkour_challenges',
-      description: 'Get a list of all Parkour challenges',
-      parameters: { type: 'object', properties: {}, required: [] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_intro_challenges',
-      description: 'Get a list of all Intro challenges',
-      parameters: { type: 'object', properties: {}, required: [] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_ways_to_climb_challenges',
-      description: 'Get a list of all Ways To Climb challenges',
-      parameters: { type: 'object', properties: {}, required: [] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_intro_ways_to_climb_challenges',
-      description: 'Get a list of all Intro Ways To Climb challenges',
-      parameters: { type: 'object', properties: {}, required: [] }
-    }
-  },
-  // Comparisons
-  {
-    type: 'function',
-    function: {
-      name: 'compare_players',
-      description: 'Compare two players head to head',
-      parameters: { type: 'object', properties: { player1: { type: 'string', description: 'First player name' }, player2: { type: 'string', description: 'Second player name' } }, required: ['player1', 'player2'] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'compare_on_challenge',
-      description: 'Compare two players on a specific challenge',
-      parameters: { type: 'object', properties: { player1: { type: 'string', description: 'First player name' }, player2: { type: 'string', description: 'Second player name' }, challenge_name: { type: 'string', description: 'Challenge name' } }, required: ['player1', 'player2', 'challenge_name'] }
-    }
-  },
-  // Spotlight
-  {
-    type: 'function',
-    function: {
-      name: 'get_spotlight',
-      description: 'Get the current spotlight challenge name, time remaining and leaderboard',
-      parameters: { type: 'object', properties: {}, required: [] }
-    }
-  },
-  // Gauntlet
-  {
-    type: 'function',
-    function: {
-      name: 'get_gauntlet',
-      description: 'Get the current gauntlet challenge, target time, and who has beaten it',
-      parameters: { type: 'object', properties: {}, required: [] }
-    }
-  },
-  // Stats/info
-  {
-    type: 'function',
-    function: {
-      name: 'get_bot_status',
-      description: 'Get cache size, player count and last update time',
-      parameters: { type: 'object', properties: {}, required: [] }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_points_for_rank',
-      description: 'Get how many points a specific rank is worth',
-      parameters: { type: 'object', properties: { rank: { type: 'integer', description: 'The rank number 1-100' } }, required: ['rank'] }
-    }
-  },
-];
-
-    const globalSorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
-    const totalPlayers = globalSorted.length;
-    const totalChallenges = CHALLENGE_IDS.length;
-    const namedChallenges = Object.entries(CHALLENGE_NAMES).map(([id, d]) => `${d.name} (${d.type})`).join(', ');
-
-    const systemPrompt = `You are a helpful assistant for the game Orion Drift, a parkour/movement game.
-You have access to live leaderboard data updated every 10 minutes via tools.
-
-Total players tracked: ${totalPlayers}
-Total challenges: ${totalChallenges}
-Named challenges available: ${namedChallenges}
-
-The points system:
-- 1st: 1000pts, 2nd: 980pts, 3rd: 960pts... down to 100th place
-- Players earn points across all challenges
-
-Keep all responses exactly 1975 characters. Be concise.
-
-This is a big thing, do NOT make up answers.
-
-Challenge types:
-- perm: permanent challenges always available
-- kazz_easy / kazz_hard: Kazzmania weekly challenges
-- weekly_race: weekly racing challenges
-- zdrift: ZDrift specific challenges
-
-Use your tools to fetch live data when answering questions about specific players, challenges or leaderboards.
-Be helpful, friendly and concise.`;
-
-    if (!askConversations[userId]) {
-      askConversations[userId] = [{ role: 'system', content: systemPrompt }];
-    } else {
-      askConversations[userId][0] = { role: 'system', content: systemPrompt };
-    }
-
-    askConversations[userId].push({ role: 'user', content: question });
-
-    if (askConversations[userId].length > 21) {
-      askConversations[userId] = [
-        askConversations[userId][0],
-        ...askConversations[userId].slice(-20)
-      ];
-    }
-
-    try {
-      const response = await openai.chat.completions.create({
-        model: 'openai/gpt-oss-20b',
-        messages: askConversations[userId],
-        tools: tools,
-        max_tokens: 500,
+    const zdriftStats = {};
+    for (const id of ZDRIFT_IDS) {
+      const entries = cache[id];
+      if (!entries) continue;
+      entries.forEach(entry => {
+        const rank = entry.rank;
+        if (rank > 100) return;
+        const name = entry.username || 'Unknown';
+        const userId = entry.user_id || name;
+        if (!zdriftStats[userId]) {
+          zdriftStats[userId] = { name, totalPoints: 0, wrCount: 0, top7Count: 0, top100Count: 0, ranks: [] };
+        }
+        zdriftStats[userId].totalPoints += getPoints(rank);
+        zdriftStats[userId].top100Count++;
+        if (rank === 1) zdriftStats[userId].wrCount++;
+        if (rank <= 7) zdriftStats[userId].top7Count++;
+        zdriftStats[userId].ranks.push(rank);
       });
-
-      const message = response.choices[0].message;
-
-      if (message.tool_calls) {
-        askConversations[userId].push(message);
-
-        for (const toolCall of message.tool_calls) {
-          const args = JSON.parse(toolCall.function.arguments);
-          let result = '';
-
-          if (toolCall.function.name === 'get_challenge_leaderboard') {
-            const entry = Object.entries(CHALLENGE_NAMES).find(([id, d]) =>
-              d.name.toLowerCase() === args.challenge_name.toLowerCase() ||
-              d.name.toLowerCase().includes(args.challenge_name.toLowerCase())
-            );
-            if (entry) {
-              const entries = cache[entry[0]] || [];
-              result = entries.slice(0, 20).map(e => `#${e.rank} ${e.username} — ${formatTime(e.record)}`).join('\n');
-            } else {
-              result = 'Challenge not found.';
-            }
-          }
-
-          if (toolCall.function.name === 'get_player_stats') {
-            const player = Object.values(playerStats).find(p =>
-              p.name.toLowerCase() === args.player_name.toLowerCase()
-            ) || Object.values(playerStats).find(p =>
-              p.name.toLowerCase().includes(args.player_name.toLowerCase())
-            );
-            if (player) {
-              const sorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
-              const rank = sorted.findIndex(p => p.name === player.name) + 1;
-              const avg = player.ranks.length ? (player.ranks.reduce((a, b) => a + b, 0) / player.ranks.length).toFixed(1) : 'N/A';
-              result = `${player.name} — Global #${rank}, ${player.totalPoints.toLocaleString()} pts, ${player.wrCount} WRs, ${player.top7Count} Top7s, ${player.top100Count} Top100s, Avg Rank: ${avg}`;
-            } else {
-              result = 'Player not found.';
-            }
-          }
-
-          if (toolCall.function.name === 'get_leaderboard') {
-            const page = args.page || 1;
-            const perPage = 30;
-            const slice = globalSorted.slice((page - 1) * perPage, page * perPage);
-            result = slice.map((p, i) => `#${(page - 1) * perPage + i + 1} ${p.name} — ${p.totalPoints.toLocaleString()} pts, ${p.wrCount} WRs`).join('\n');
-          }
-
-          if (toolCall.function.name === 'get_wr_holders') {
-            const lines = Object.entries(CHALLENGE_NAMES).map(([id, d]) => {
-              const entries = cache[id] || [];
-              const wr = entries.find(e => e.rank === 1);
-              return wr ? `${d.name}: ${wr.username} — ${formatTime(wr.record)}` : `${d.name}: No data`;
-            });
-            result = lines.join('\n');
-          }
-
-          askConversations[userId].push({
-            role: 'tool',
-            tool_call_id: toolCall.id,
-            content: result,
-          });
-        }
-
-        const finalResponse = await openai.chat.completions.create({
-          model: 'openai/gpt-oss-20b',
-          messages: askConversations[userId],
-          max_tokens: 500,
-        });
-
-        const reply = finalResponse.choices[0].message.content;
-        askConversations[userId].push({ role: 'assistant', content: reply });
-
-        if (reply.length > 2000) {
-          const chunks = reply.match(/[\s\S]{1,2000}/g);
-          await interaction.editReply(chunks[0]);
-          for (let i = 1; i < chunks.length; i++) {
-            await interaction.followUp(chunks[i]);
-          }
-        } else {
-          return interaction.editReply(reply);
-        }
-
-      } else {
-        const reply = message.content;
-        askConversations[userId].push({ role: 'assistant', content: reply });
-
-        if (reply.length > 2000) {
-          const chunks = reply.match(/[\s\S]{1,2000}/g);
-          await interaction.editReply(chunks[0]);
-          for (let i = 1; i < chunks.length; i++) {
-            await interaction.followUp(chunks[i]);
-          }
-        } else {
-          return interaction.editReply(reply);
-        }
-      }
-
-    } catch (e) {
-      console.error('OpenAI error:', e.message);
-      return interaction.editReply('Sorry, I ran into an error. Try again in a moment.');
     }
+
+    const sorted = Object.values(zdriftStats).sort((a, b) => b.top7Count - a.top7Count);
+    const totalPages = Math.ceil(sorted.length / perPage);
+    const slice = sorted.slice((page - 1) * perPage, page * perPage);
+
+    if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
+
+    const lines = slice.map((p, i) => {
+      const rank = (page - 1) * perPage + i + 1;
+      return `#${rank} ${formatPlayer(p.name)} — Top7: ${p.top7Count} | 1st: ${p.wrCount} | Top100: ${p.top100Count}`;
+    });
+
+    const embed = new EmbedBuilder()
+      .setTitle('ZDrift — Top 7 Leaderboard')
+      .setColor(0x2ecc71)
+      .setDescription(lines.join('\n'))
+      .setFooter({ text: `Page ${page}/${totalPages} • Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+
+    interaction.editReply({ embeds: [embed] });
   }
-  
+
+  else if (commandName === 'zdriftwrleaderboard') {
+    await interaction.deferReply();
+    const page = interaction.options.getInteger('page') || 1;
+    const perPage = 30;
+
+    const zdriftStats = {};
+    for (const id of ZDRIFT_IDS) {
+      const entries = cache[id];
+      if (!entries) continue;
+      entries.forEach(entry => {
+        const rank = entry.rank;
+        if (rank > 100) return;
+        const name = entry.username || 'Unknown';
+        const userId = entry.user_id || name;
+        if (!zdriftStats[userId]) {
+          zdriftStats[userId] = { name, totalPoints: 0, wrCount: 0, top7Count: 0, top100Count: 0, ranks: [] };
+        }
+        zdriftStats[userId].totalPoints += getPoints(rank);
+        zdriftStats[userId].top100Count++;
+        if (rank === 1) zdriftStats[userId].wrCount++;
+        if (rank <= 7) zdriftStats[userId].top7Count++;
+        zdriftStats[userId].ranks.push(rank);
+      });
+    }
+
+    const sorted = Object.values(zdriftStats).sort((a, b) => b.wrCount - a.wrCount);
+    const totalPages = Math.ceil(sorted.length / perPage);
+    const slice = sorted.slice((page - 1) * perPage, page * perPage);
+
+    if (slice.length === 0) return interaction.editReply('No data yet, try again in a moment.');
+
+    const lines = slice.map((p, i) => {
+      const rank = (page - 1) * perPage + i + 1;
+      return `#${rank} ${formatPlayer(p.name)} — WRs: ${p.wrCount} | Top7: ${p.top7Count} | Top100: ${p.top100Count}`;
+    });
+
+    const embed = new EmbedBuilder()
+      .setTitle('ZDrift — World Record Leaderboard')
+      .setColor(0x2ecc71)
+      .setDescription(lines.join('\n'))
+      .setFooter({ text: `Page ${page}/${totalPages} • Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+
+    interaction.editReply({ embeds: [embed] });
+  }
+
   else if (commandName === 'zdriftimprove') {
     await interaction.deferReply();
     const name = interaction.options.getString('name').toLowerCase();
@@ -3744,26 +3234,29 @@ Be helpful, friendly and concise.`;
 
     if (!player) return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
 
-    const playerChallengeIds = new Set(player.challenges.map(c => c.challengeId));
-
-    const zdriftPlayerIds = new Set();
+    const rankInfo = getPlayerRankInfo(player.name);
+    const found = new Set();
     for (const id of ZDRIFT_IDS) {
       const entries = cache[id];
       if (!entries) continue;
-      const found = entries.find(e => e.username && e.username.toLowerCase() === player.name.toLowerCase());
-      if (found) zdriftPlayerIds.add(id);
+      if (entries.find(e => e.username && e.username.toLowerCase() === player.name.toLowerCase())) {
+        found.add(id);
+      }
     }
 
-    const missing = ZDRIFT_IDS.filter(id => !zdriftPlayerIds.has(id));
-
-    if (missing.length === 0) return interaction.editReply(`**${player.name}** has a top 100 entry on every ZDrift challenge!`);
+    const missing = ZDRIFT_IDS.filter(id => !found.has(id));
+    if (missing.length === 0) return interaction.editReply(`${formatPlayer(player.name)} has a top 100 entry on every ZDrift challenge!`);
 
     const lines = missing.map(id => `- **${getChallengeName(id)}**`);
-    const description = [`**${player.name}** has no top 100 entry on ${missing.length} ZDrift challenge${missing.length === 1 ? '' : 's'}:`, ``, lines.join('\n')].join('\n');
+    const description = [
+      `${formatPlayer(player.name)} has no top 100 entry on ${missing.length} ZDrift challenge${missing.length === 1 ? '' : 's'}:`,
+      ``,
+      lines.join('\n')
+    ].join('\n');
 
     const embed = new EmbedBuilder()
-      .setTitle(`${player.name} — ZDrift Challenges to Improve`)
-      .setColor(0x2ecc71)
+      .setTitle(`${player.name} [${rankInfo.fullRank}] — ZDrift Challenges to Improve`)
+      .setColor(rankInfo.color)
       .setDescription(description.slice(0, 4096))
       .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
 
@@ -3774,99 +3267,99 @@ Be helpful, friendly and concise.`;
     await interaction.deferReply();
     const name = interaction.options.getString('name').toLowerCase();
 
-    const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name)
-      || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name));
-
-    if (!player) return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
-
-    const zdriftChallenges = [];
+    const zdriftPlayers = {};
     for (const id of ZDRIFT_IDS) {
-      const entries = cache[id];
-      if (!entries) continue;
-      const entry = entries.find(e => e.username && e.username.toLowerCase() === player.name.toLowerCase());
-      if (entry) zdriftChallenges.push({ challengeId: id, rank: entry.rank, record: entry.record });
+      const entries = cache[id] || [];
+      for (const entry of entries) {
+        if (entry.rank > 100) continue;
+        const uid = entry.user_id || entry.username;
+        if (!zdriftPlayers[uid]) {
+          zdriftPlayers[uid] = { name: entry.username, totalPoints: 0, wrCount: 0, top7Count: 0, top100Count: 0, ranks: [], challenges: [] };
+        }
+        zdriftPlayers[uid].totalPoints += getPoints(entry.rank);
+        zdriftPlayers[uid].top100Count++;
+        if (entry.rank === 1) zdriftPlayers[uid].wrCount++;
+        if (entry.rank <= 7) zdriftPlayers[uid].top7Count++;
+        zdriftPlayers[uid].ranks.push(entry.rank);
+        zdriftPlayers[uid].challenges.push({ challengeId: id, rank: entry.rank, record: entry.record });
+      }
     }
 
-    if (zdriftChallenges.length === 0) return interaction.editReply(`**${player.name}** has no top 100 entries on any ZDrift challenge.`);
+    const player = Object.values(zdriftPlayers).find(p => p.name.toLowerCase() === name)
+      || Object.values(zdriftPlayers).find(p => p.name.toLowerCase().includes(name));
 
-    const totalZPoints = zdriftChallenges.reduce((sum, c) => sum + getPoints(c.rank), 0);
-    const zdriftWrs = zdriftChallenges.filter(c => c.rank === 1).length;
-    const zdriftTop7 = zdriftChallenges.filter(c => c.rank <= 7).length;
-    const avgRank = (zdriftChallenges.reduce((sum, c) => sum + c.rank, 0) / zdriftChallenges.length).toFixed(1);
+    if (!player) return interaction.editReply(`No ZDrift stats found for **${interaction.options.getString('name')}**.`);
+
+    const rankInfo = getPlayerRankInfo(player.name);
+    const sorted = Object.values(zdriftPlayers).sort((a, b) => b.totalPoints - a.totalPoints);
+    const zdriftRank = sorted.findIndex(p => p.name === player.name) + 1;
+    const avgRank = player.ranks.length ? (player.ranks.reduce((a, b) => a + b, 0) / player.ranks.length).toFixed(1) : 'N/A';
 
     const summaryEmbed = new EmbedBuilder()
-      .setTitle(`${player.name} — ZDrift Stats`)
-      .setColor(0x2ecc71)
+      .setTitle(`${player.name} [${rankInfo.fullRank}] — ZDrift Stats`)
+      .setColor(rankInfo.color)
       .setDescription([
-        `**Total ZDrift Points:** ${totalZPoints.toLocaleString()}`,
-        `**World Records:** ${zdriftWrs}`,
-        `**Top 7s:** ${zdriftTop7}`,
-        `**Top 100s:** ${zdriftChallenges.length}`,
+        `**MMR:** ${rankInfo.mmr.toLocaleString()} MMR (${rankInfo.mmrRank ? `#${rankInfo.mmrRank}` : 'Unranked'}) | **Rank:** ${rankInfo.fullRank}`,
+        `**ZDrift Rank:** #${zdriftRank}`,
+        `**Total Points:** ${player.totalPoints.toLocaleString()}`,
+        `**World Records (1st):** ${player.wrCount}`,
+        `**Top 7s:** ${player.top7Count}`,
+        `**Top 100s:** ${player.top100Count}`,
         `**Avg Rank:** ${avgRank}`,
       ].join('\n'))
       .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
 
     await interaction.editReply({ embeds: [summaryEmbed] });
 
-    const challengeLines = zdriftChallenges
+    const challengeLines = player.challenges
       .sort((a, b) => a.rank - b.rank)
       .map(c => `#${c.rank} **${getChallengeName(c.challengeId)}** — ${formatTime(c.record)}`);
 
-    let chunk = '';
-    let chunkIndex = 1;
-    const totalChunks = Math.ceil(challengeLines.length / 25);
+    const followEmbed = new EmbedBuilder()
+      .setColor(rankInfo.color)
+      .setTitle('ZDrift Challenge Appearances')
+      .setDescription(challengeLines.join('\n').slice(0, 4096));
 
-    for (let i = 0; i < challengeLines.length; i++) {
-      const line = challengeLines[i] + '\n';
-      if ((chunk + line).length > 4096) {
-        const followEmbed = new EmbedBuilder()
-          .setColor(0x2ecc71)
-          .setTitle(`ZDrift Appearances (${chunkIndex}/${totalChunks})`)
-          .setDescription(chunk.trim());
-        await interaction.followUp({ embeds: [followEmbed] });
-        chunk = '';
-        chunkIndex++;
-      }
-      chunk += line;
-    }
-
-    if (chunk.trim().length > 0) {
-      const followEmbed = new EmbedBuilder()
-        .setColor(0x2ecc71)
-        .setTitle(totalChunks > 1 ? `ZDrift Appearances (${chunkIndex}/${totalChunks})` : 'ZDrift Appearances')
-        .setDescription(chunk.trim());
-      await interaction.followUp({ embeds: [followEmbed] });
-    }
+    await interaction.followUp({ embeds: [followEmbed] });
   }
 
-else if (commandName === 'zsummary') {
+  else if (commandName === 'zsummary') {
     await interaction.deferReply();
-    const name = interaction.options.getString('name').toLowerCase();
+    const name = interaction.options.getString('name');
 
-    const player = Object.values(playerStats).find(p => p.name.toLowerCase() === name)
-      || Object.values(playerStats).find(p => p.name.toLowerCase().includes(name));
-
-    if (!player) return interaction.editReply(`No player found matching **${interaction.options.getString('name')}**.`);
-
-    const zdriftChallenges = [];
+    const zdriftPlayers = {};
     for (const id of ZDRIFT_IDS) {
-      const entries = cache[id];
-      if (!entries) continue;
-      const entry = entries.find(e => e.username && e.username.toLowerCase() === player.name.toLowerCase());
-      if (entry) zdriftChallenges.push({ rank: entry.rank });
+      const entries = cache[id] || [];
+      for (const entry of entries) {
+        if (entry.rank > 100) continue;
+        const uid = entry.user_id || entry.username;
+        if (!zdriftPlayers[uid]) {
+          zdriftPlayers[uid] = { name: entry.username, totalPoints: 0, wrCount: 0, top7Count: 0, top100Count: 0, ranks: [] };
+        }
+        zdriftPlayers[uid].totalPoints += getPoints(entry.rank);
+        zdriftPlayers[uid].top100Count++;
+        if (entry.rank === 1) zdriftPlayers[uid].wrCount++;
+        if (entry.rank <= 7) zdriftPlayers[uid].top7Count++;
+        zdriftPlayers[uid].ranks.push(entry.rank);
+      }
     }
 
-    if (zdriftChallenges.length === 0) return interaction.editReply(`**${player.name}** has no top 100 entries on any ZDrift challenge.`);
+    const player = Object.values(zdriftPlayers).find(p => p.name.toLowerCase() === name.toLowerCase());
+    if (!player) return interaction.editReply(`No ZDrift stats found for "${name}".`);
 
-    const totalZPoints = zdriftChallenges.reduce((sum, c) => sum + getPoints(c.rank), 0);
-    const zdriftWrs = zdriftChallenges.filter(c => c.rank === 1).length;
-    const zdriftTop7 = zdriftChallenges.filter(c => c.rank <= 7).length;
-    const avgRank = (zdriftChallenges.reduce((sum, c) => sum + c.rank, 0) / zdriftChallenges.length).toFixed(1);
+    const rankInfo = getPlayerRankInfo(player.name);
+    const sorted = Object.values(zdriftPlayers).sort((a, b) => b.totalPoints - a.totalPoints);
+    const zdriftRank = sorted.findIndex(p => p.name.toLowerCase() === name.toLowerCase()) + 1;
+    const avgRank = player.ranks.length ? (player.ranks.reduce((a, b) => a + b, 0) / player.ranks.length).toFixed(1) : 'N/A';
 
     const embed = new EmbedBuilder()
-      .setTitle(player.name.slice(0, 256))
-      .setColor(0x2ecc71)
-      .setDescription(`${totalZPoints.toLocaleString()} ZDrift pts | ${zdriftWrs} WRs | ${zdriftTop7} Top 7s | ${zdriftChallenges.length} Top 100s | Avg Rank: ${avgRank}`)
+      .setTitle(`${player.name} [${rankInfo.fullRank}] — ZDrift Summary`)
+      .setColor(rankInfo.color)
+      .setDescription([
+        `**MMR:** ${rankInfo.mmr.toLocaleString()} MMR (${rankInfo.mmrRank ? `#${rankInfo.mmrRank}` : 'Unranked'}) | **Rank:** ${rankInfo.fullRank}`,
+        `**ZDrift Rank:** #${zdriftRank} | ${player.totalPoints.toLocaleString()} pts | Avg Rank: ${avgRank}`,
+        `**WRs:** ${player.wrCount} | **Top 7s:** ${player.top7Count} | **Top 100s:** ${player.top100Count}`,
+      ].join('\n'))
       .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
 
     return interaction.editReply({ embeds: [embed] });
@@ -3874,30 +3367,17 @@ else if (commandName === 'zsummary') {
 
   else if (commandName === 'findbywr') {
     await interaction.deferReply();
-    const input = interaction.options.getString('time').trim().toLowerCase();
+    const raw = interaction.options.getString('time').trim();
 
-let searchSeconds = null;
-    const minSecMatch = input.match(/(\d+)m\s*([\d.]+)s?/);
-    const colonMatch = input.match(/(\d+):([\d.]+)/);
-    const plainMatch = input.match(/^[\d.]+$/);
-
+    let targetSeconds = null;
+    const minSecMatch = raw.match(/^(\d+)m\s*([\d.]+)s?$/i);
     if (minSecMatch) {
-      searchSeconds = parseInt(minSecMatch[1]) * 60 + parseFloat(minSecMatch[2]);
-    } else if (colonMatch) {
-      searchSeconds = parseInt(colonMatch[1]) * 60 + parseFloat(colonMatch[2]);
-    } else if (plainMatch) {
-      searchSeconds = parseFloat(input);
+      targetSeconds = parseInt(minSecMatch[1]) * 60 + parseFloat(minSecMatch[2]);
+    } else {
+      targetSeconds = parseFloat(raw.replace(/s$/i, ''));
     }
 
-    // Handle raw seconds passed from autocomplete
-    if (searchSeconds === null) {
-      const raw = parseFloat(input);
-      if (!isNaN(raw)) searchSeconds = raw;
-    }
-
-    if (searchSeconds === null) {
-      return interaction.editReply('Could not parse that time. Try formats like `12.345`, `1m 23.456s`, or `1:23.456`.');
-    }
+    if (isNaN(targetSeconds)) return interaction.editReply('Invalid time format. Try something like `51.671` or `1m 12.345s`.');
 
     const ALL_IDS = [...new Set([...CHALLENGE_IDS, ...ZDRIFT_IDS])];
     const results = [];
@@ -3907,50 +3387,327 @@ let searchSeconds = null;
       if (!entries) continue;
       const wr = entries.find(e => e.rank === 1);
       if (!wr) continue;
-      if (Math.abs(wr.record - searchSeconds) < 0.01) {
-        results.push({ id, wr });
-      }
+      const diff = Math.abs(wr.record - targetSeconds);
+      results.push({ id, name: getChallengeName(id), wr, diff });
     }
 
-    if (results.length === 0) {
-      return interaction.editReply(`No challenge found with a WR time matching **${input}**.`);
-    }
+    results.sort((a, b) => a.diff - b.diff);
+    const closest = results.slice(0, 5);
 
-    const globalSorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
+    if (closest.length === 0) return interaction.editReply('No data cached yet.');
 
-    const lines = results.map(({ id, wr }) => {
-      const playerEntry = globalSorted.findIndex(p => p.name === wr.username);
-      const globalRank = playerEntry >= 0 ? `#${playerEntry + 1}` : 'Unranked';
-      return [
-        `**Challenge:** ${getChallengeName(id)}`,
-        `**ID:** \`${id}\``,
-        `**WR Holder:** ${wr.username} (Global ${globalRank})`,
-        `**Time:** ${formatTime(wr.record)}`,
-      ].join('\n');
+    const lines = closest.map(r => {
+      const exact = r.diff < 0.002 ? ' ✅' : ` (${r.wr.record > targetSeconds ? '+' : '-'}${r.diff.toFixed(3)}s)`;
+      return `**${r.name}** — WR: **${formatTime(r.wr.record)}** by ${formatPlayer(r.wr.username)}${exact}`;
     });
 
     const embed = new EmbedBuilder()
-      .setTitle('Challenge Found')
-      .setColor(0xf5a623)
-      .setDescription(lines.join('\n\n'))
+      .setTitle(`Challenges with WR near ${formatTime(targetSeconds)}`)
+      .setColor(0x00b0f4)
+      .setDescription(lines.join('\n'))
       .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
 
     return interaction.editReply({ embeds: [embed] });
   }
 
-});
-client.on('messageCreate', async message => {
-  if (message.author.bot) return;
-  if (message.channel.id !== '1560102840574414948') return;
-
-  if (message.content.trim().toLowerCase() === 'changegauntlet') {
-    await startGauntlet();
-    await message.reply('Gauntlet has been changed.');
+  else if (commandName === 'refresh') {
+    await interaction.deferReply();
+    await buildCache();
+    interaction.editReply(`Cache refreshed! ${Object.keys(playerStats).length} players across ${Object.keys(cache).length} challenges.`);
   }
+  else if (commandName === 'gauntlet') {
+    if (!gauntletChallenge) return interaction.reply('No active gauntlet right now.');
+    const entries = cache[gauntletChallenge] || [];
+    const wr = entries.find(e => e.rank === 1);
+    return interaction.reply(
+      `**Active Gauntlet**\n` +
+      `Challenge: ${getChallengeName(gauntletChallenge)}\n` +
+      `Target: ${formatTime(gauntletTarget)}\n` +
+      `WR: ${wr ? `${formatTime(wr.record)} by ${formatPlayer(wr.username)}` : 'N/A'}`
+    );
+  }
+  else if (commandName === 'ask') {
+    await interaction.deferReply();
+    const question = interaction.options.getString('question');
+    const userId = interaction.user.id;
 
-  if (message.content.trim().toLowerCase() === 'changespotlight') {
-    await endSpotlight();
-    await message.reply('Spotlight has been changed.');
+    if (!askConversations[userId]) {
+      askConversations[userId] = [];
+    }
+    const history = askConversations[userId];
+
+    const CATEGORY_MAP = {
+      zdrift: ZDRIFT_IDS,
+      bouldering: BOULDERING_IDS,
+      dribble: DRIBBLE_IDS,
+      driftball: DRIFTBALL_IDS,
+      club: CLUB_IDS,
+      parkour: PARKOUR_IDS,
+      intro: INTRO_IDS,
+      waystoclimb: WAYS_TO_CLIMB_IDS,
+      introwaystoclimb: INTRO_WAYS_TO_CLIMB_IDS,
+    };
+
+    const getCategoryIds = (cat) => {
+      if (!cat || cat === 'all') return Object.keys(CHALLENGE_NAMES).filter(id => !ZDRIFT_IDS.includes(id));
+      if (cat === 'perm') return Object.entries(CHALLENGE_NAMES).filter(([, d]) => d.type === 'perm').map(([id]) => id);
+      if (cat === 'weekly') return Object.entries(CHALLENGE_NAMES).filter(([, d]) => d.type === 'kazz_easy' || d.type === 'kazz_hard').map(([id]) => id);
+      if (cat === 'racing') return Object.entries(CHALLENGE_NAMES).filter(([, d]) => {
+        if (d.type !== 'weekly_race') return false;
+        const m = d.name.match(/WeeklyRace(\d+)/i);
+        return m && parseInt(m[1]) >= 22;
+      }).map(([id]) => id);
+      return CATEGORY_MAP[cat.toLowerCase()] || [];
+    };
+
+    const runTool = (name, args) => {
+      if (name === 'get_player_stats') {
+        const q = args.player.toLowerCase();
+        const player = Object.values(playerStats).find(p => p.name.toLowerCase() === q)
+          || Object.values(playerStats).find(p => p.name.toLowerCase().includes(q));
+        if (!player) return `No player found matching "${args.player}".`;
+        const rankInfo = getPlayerRankInfo(player.name);
+        const sorted = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
+        const globalRank = sorted.findIndex(p => p.name === player.name) + 1;
+        const avgRank = player.ranks.length ? (player.ranks.reduce((a, b) => a + b, 0) / player.ranks.length).toFixed(1) : 'N/A';
+        const topChallenges = [...player.challenges].sort((a, b) => a.rank - b.rank).slice(0, 15)
+          .map(c => `#${c.rank} ${getChallengeName(c.challengeId)} (${formatTime(c.record)})`).join(', ');
+        return JSON.stringify({
+          name: player.name,
+          rankTier: rankInfo.fullRank,
+          mmr: rankInfo.mmr,
+          mmrRank: rankInfo.mmrRank,
+          globalRank,
+          totalPoints: player.totalPoints,
+          wrCount: player.wrCount,
+          top7Count: player.top7Count,
+          top100Count: player.top100Count,
+          avgRank,
+          topChallenges,
+        });
+      }
+
+      if (name === 'get_challenge_leaderboard') {
+        const q = args.challenge.toLowerCase();
+        const ALL_IDS = [...new Set([...Object.keys(CHALLENGE_NAMES), ...Object.keys(cache)])];
+        const id = ALL_IDS.find(i => getChallengeName(i).toLowerCase() === q || i.toLowerCase() === q)
+          || ALL_IDS.find(i => getChallengeName(i).toLowerCase().includes(q));
+        if (!id || !cache[id]) return `No challenge found matching "${args.challenge}".`;
+        const limit = Math.min(args.limit || 15, 25);
+        const rows = cache[id].slice(0, limit).map(e => `#${e.rank} ${e.username} [${getPlayerRankInfo(e.username).fullRank}] - ${formatTime(e.record)}`).join('\n');
+        return `Challenge: ${getChallengeName(id)} (ID: ${id})\n${rows}`;
+      }
+
+      if (name === 'get_category_leaderboard') {
+        const cat = (args.category || 'all').toLowerCase();
+        const sortBy = (args.sort_by || 'points').toLowerCase();
+        const limit = Math.min(args.limit || 15, 25);
+        const ids = getCategoryIds(cat);
+        if (!ids.length) return `Unknown category "${args.category}". Valid: all, perm, weekly, racing, zdrift, bouldering, dribble, driftball, club, parkour, intro, waystoclimb, introwaystoclimb.`;
+        const stats = {};
+        for (const id of ids) {
+          for (const e of (cache[id] || [])) {
+            if (e.rank > 100) continue;
+            const uid = e.user_id || e.username;
+            if (!stats[uid]) stats[uid] = { name: e.username, points: 0, wrs: 0, top7: 0, top100: 0, ranks: [] };
+            stats[uid].points += getPoints(e.rank);
+            stats[uid].top100++;
+            if (e.rank === 1) stats[uid].wrs++;
+            if (e.rank <= 7) stats[uid].top7++;
+            stats[uid].ranks.push(e.rank);
+          }
+        }
+        const sorted = Object.values(stats).sort((a, b) => {
+          if (sortBy === 'wrs') return b.wrs - a.wrs || b.points - a.points;
+          if (sortBy === 'top7') return b.top7 - a.top7 || b.points - a.points;
+          if (sortBy === 'top100') return b.top100 - a.top100 || b.points - a.points;
+          return b.points - a.points;
+        });
+        return sorted.slice(0, limit).map((p, i) => {
+          const avg = (p.ranks.reduce((a, b) => a + b, 0) / p.ranks.length).toFixed(1);
+          return `#${i + 1} ${p.name} [${getPlayerRankInfo(p.name).fullRank}] - ${p.points} pts | WRs: ${p.wrs} | Top7: ${p.top7} | Top100: ${p.top100} | Avg: ${avg}`;
+        }).join('\n');
+      }
+
+      if (name === 'get_player_missing_challenges') {
+        const q = args.player.toLowerCase();
+        const cat = (args.category || 'all').toLowerCase();
+        const ids = getCategoryIds(cat);
+        if (!ids.length) return `Unknown category "${args.category}".`;
+        const missing = ids.filter(id => !(cache[id] || []).some(e => e.username && e.username.toLowerCase() === q));
+        if (!missing.length) return `${args.player} has a top 100 on all ${ids.length} challenges in ${cat}!`;
+        return `${args.player} is missing ${missing.length}/${ids.length} in ${cat}: ${missing.slice(0, 40).map(getChallengeName).join(', ')}`;
+      }
+
+      if (name === 'compare_players') {
+        const q1 = args.player1.toLowerCase();
+        const q2 = args.player2.toLowerCase();
+        const p1 = Object.values(playerStats).find(p => p.name.toLowerCase() === q1) || Object.values(playerStats).find(p => p.name.toLowerCase().includes(q1));
+        const p2 = Object.values(playerStats).find(p => p.name.toLowerCase() === q2) || Object.values(playerStats).find(p => p.name.toLowerCase().includes(q2));
+        if (!p1 || !p2) return 'One or both players could not be found.';
+        const r1 = getPlayerRankInfo(p1.name);
+        const r2 = getPlayerRankInfo(p2.name);
+        const m1 = new Map(p1.challenges.map(c => [c.challengeId, c.rank]));
+        const m2 = new Map(p2.challenges.map(c => [c.challengeId, c.rank]));
+        let w1 = 0, w2 = 0, shared = 0;
+        for (const [id, rank1] of m1) {
+          if (m2.has(id)) {
+            shared++;
+            if (rank1 < m2.get(id)) w1++;
+            else if (m2.get(id) < rank1) w2++;
+          }
+        }
+        return JSON.stringify({
+          [p1.name]: { rankTier: r1.fullRank, mmr: r1.mmr, points: p1.totalPoints, wrs: p1.wrCount, top7: p1.top7Count, top100: p1.top100Count },
+          [p2.name]: { rankTier: r2.fullRank, mmr: r2.mmr, points: p2.totalPoints, wrs: p2.wrCount, top7: p2.top7Count, top100: p2.top100Count },
+          headToHead: { sharedChallenges: shared, [p1.name]: w1, [p2.name]: w2 },
+        });
+      }
+
+      return 'Unknown tool.';
+    };
+
+    const tools = [
+      {
+        type: 'function',
+        function: {
+          name: 'get_player_stats',
+          description: 'Get overall stats, MMR, rank tier, global rank, WRs, top 7s, top 100s, average rank, and best challenges for a player.',
+          parameters: {
+            type: 'object',
+            properties: { player: { type: 'string', description: 'Player username' } },
+            required: ['player'],
+          },
+        },
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'get_challenge_leaderboard',
+          description: 'Get the top times and rankings for a specific Orion Drift challenge by name or ID.',
+          parameters: {
+            type: 'object',
+            properties: {
+              challenge: { type: 'string', description: 'Challenge name (e.g. "Verting", "Centrifuge") or ID' },
+              limit: { type: 'integer', description: 'How many top entries to return (default 15, max 25)' },
+            },
+            required: ['challenge'],
+          },
+        },
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'get_category_leaderboard',
+          description: 'Get the top players for a category (all, perm, weekly, racing, zdrift, bouldering, dribble, driftball, club, parkour, intro, waystoclimb, introwaystoclimb).',
+          parameters: {
+            type: 'object',
+            properties: {
+              category: { type: 'string', description: 'Category name' },
+              sort_by: { type: 'string', enum: ['points', 'wrs', 'top7', 'top100'], description: 'Metric to rank players by' },
+              limit: { type: 'integer', description: 'Number of players to return (default 15, max 25)' },
+            },
+            required: ['category'],
+          },
+        },
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'get_player_missing_challenges',
+          description: 'List challenges in a category where a player does NOT yet have a top 100 time.',
+          parameters: {
+            type: 'object',
+            properties: {
+              player: { type: 'string', description: 'Player username' },
+              category: { type: 'string', description: 'Category name (default: all)' },
+            },
+            required: ['player'],
+          },
+        },
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'compare_players',
+          description: 'Compare two players head-to-head across points, WRs, top 7s, top 100s, MMR, rank tier, and shared challenges.',
+          parameters: {
+            type: 'object',
+            properties: {
+              player1: { type: 'string' },
+              player2: { type: 'string' },
+            },
+            required: ['player1', 'player2'],
+          },
+        },
+      },
+    ];
+
+    try {
+      const systemPrompt = `You are the Orion Drift Leaderboard Assistant in Discord. Answer questions accurately using the provided live leaderboard tools.
+Rules:
+- Keep answers concise, clear, and well-formatted for Discord (under 1800 characters).
+- Always call tools to look up real numbers—never guess times, ranks, or player stats.
+- Include players' competitive rank tier (e.g., [Apex V], [Diamond II]) when referring to them if available from the tool output.
+- Active Spotlight Challenge: ${spotlightChallenge ? getChallengeName(spotlightChallenge) : 'None'}.
+- Active Gauntlet Challenge: ${gauntletChallenge ? `${getChallengeName(gauntletChallenge)} (Target: ${formatTime(gauntletTarget)})` : 'None'}.
+- Total tracked players: ${Object.keys(playerStats).length}.`;
+
+      const messages = [
+        { role: 'system', content: systemPrompt },
+        ...history.slice(-6),
+        { role: 'user', content: question },
+      ];
+
+      let response = await openai.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages,
+        tools,
+        tool_choice: 'auto',
+        max_tokens: 800,
+      });
+
+      let msg = response.choices[0].message;
+
+      for (let step = 0; step < 4 && msg.tool_calls && msg.tool_calls.length > 0; step++) {
+        messages.push(msg);
+        for (const call of msg.tool_calls) {
+          const args = JSON.parse(call.function.arguments || '{}');
+          const result = runTool(call.function.name, args);
+          messages.push({
+            role: 'tool',
+            tool_call_id: call.id,
+            content: result,
+          });
+        }
+
+        response = await openai.chat.completions.create({
+          model: 'llama-3.3-70b-versatile',
+          messages,
+          tools,
+          tool_choice: 'auto',
+          max_tokens: 800,
+        });
+        msg = response.choices[0].message;
+      }
+
+      const answer = msg.content || 'I could not generate an answer.';
+      history.push({ role: 'user', content: question });
+      history.push({ role: 'assistant', content: answer });
+      if (history.length > 10) askConversations[userId] = history.slice(-10);
+
+      const embed = new EmbedBuilder()
+        .setColor(0x5865f2)
+        .setAuthor({ name: `Asked by ${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() })
+        .setDescription(answer.slice(0, 4096))
+        .setFooter({ text: `Orion Drift AI • Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+
+      return interaction.editReply({ embeds: [embed] });
+    } catch (e) {
+      console.error('Error in /ask:', e);
+      return interaction.editReply('Something went wrong while answering your question. Try again in a moment.');
+    }
   }
 });
+
 client.login(BOT_TOKEN);
