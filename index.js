@@ -562,6 +562,12 @@ const GAUNTLET_CHANNEL_ID = '1559355085111427182';
 const GAUNTLET_WINNER_CHANNEL_ID = '1559355235879751770';
 const MMR_LEADERBOARD_CHANNEL_ID = '1573532956419555470';
 const CHALLENGE_FORUM_CHANNEL_ID = '1573535987802443776';
+const MINI_CUP_CHANNEL_ID = '1573778662094803124';
+const MINI_CUP_WINNER_CHANNEL_ID = '1573778731057811508';
+const CHANGER_CHANNEL_ID = 'YOUR_CHANGER_CHANNEL_ID';
+
+let miniCupState = null;
+let miniCupMessageId = null;
 let mmrMessageId = null;
 let mmrThresholdsMessageId = null;
 const POINTS = [
@@ -910,6 +916,228 @@ async function endSpotlight() {
   }
 
 await startSpotlight();
+}
+function pickRandomUnique(ids, excludeSet, count = 2) {
+  const eligible = ids.filter(id => {
+    if (excludeSet.has(id)) return false;
+    const entries = cache[id] || [];
+    const fourth = entries.find(e => e.rank === 4);
+    const seventh = entries.find(e => e.rank === 7);
+    return entries.length >= 7 && fourth && seventh;
+  });
+
+  for (let i = eligible.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [eligible[i], eligible[j]] = [eligible[j], eligible[i]];
+  }
+
+  const picked = eligible.slice(0, count);
+  picked.forEach(id => excludeSet.add(id));
+  return picked;
+}
+
+function buildMiniCupEmbed(state) {
+  const playerScores = {};
+  for (const ch of state.challenges) {
+    const entries = cache[ch.id] || [];
+    for (const entry of entries) {
+      if (!entry.username) continue;
+      const prevTime = ch.snapshot[entry.username];
+      const beatTarget = entry.record <= ch.target;
+      const isNewOrImproved = prevTime === undefined || entry.record < prevTime;
+
+      if (beatTarget && isNewOrImproved) {
+        if (!playerScores[entry.username]) {
+          playerScores[entry.username] = { name: entry.username, clears: 0, totalMargin: 0, clearedIds: [] };
+        }
+        playerScores[entry.username].clears++;
+        playerScores[entry.username].totalMargin += Math.max(0, ch.target - entry.record);
+        playerScores[entry.username].clearedIds.push(ch.id);
+      }
+    }
+  }
+
+  const standings = Object.values(playerScores).sort(
+    (a, b) => b.clears - a.clears || b.totalMargin - a.totalMargin
+  );
+
+  const categories = ['Parkour', 'Club', 'Bouldering', 'ZDrift'];
+  const challengeSections = categories.map(cat => {
+    const items = state.challenges.filter(c => c.category === cat);
+    const lines = items.map(c => {
+      const clearCount = standings.filter(s => s.clearedIds.includes(c.id)).length;
+      return `• **${getChallengeName(c.id)}** — Target: **${formatTime(c.target)}** (${clearCount} clear${clearCount === 1 ? '' : 's'})`;
+    });
+    return `**__${cat}__**\n${lines.join('\n')}`;
+  });
+
+  const standingsLines = standings.length > 0
+    ? standings.slice(0, 15).map((s, i) =>
+        `#${i + 1} ${formatPlayer(s.name)} — **${s.clears}/8** cleared (-${s.totalMargin.toFixed(3)}s total margin)`
+      )
+    : ['No targets beaten yet — beat all 8 targets (new/improved PBs) to win the Cup!'];
+
+  const encodedState = Buffer.from(JSON.stringify(state)).toString('base64');
+
+  const mainEmbed = new EmbedBuilder()
+    .setTitle(`Orion Drift Mini Cup #${state.cupNumber} (8 Challenges)`)
+    .setColor(0x9b59b6)
+    .setDescription([
+      'First player to beat the Gauntlet-difficulty target on all **8 challenges** (new or improved PBs only) wins and starts the next Cup!',
+      '',
+      ...challengeSections,
+      '',
+      '**__Live Cup Standings__**',
+      ...standingsLines,
+    ].join('\n').slice(0, 4096))
+    .setFooter({ text: `Cup #${state.cupNumber} • Completes when a player reaches 8/8 • Updates every 2 mins` });
+
+  const stateMessageContent = `||CUPSTATE:${encodedState}||`;
+
+  return { mainEmbed, stateMessageContent, standings };
+}
+
+async function restoreMiniCupFromDiscord() {
+  const channel = client.channels.cache.get(MINI_CUP_CHANNEL_ID);
+  if (!channel) return false;
+
+  try {
+    const recent = await channel.messages.fetch({ limit: 15 });
+    const botMsg = recent.find(
+      m => m.author.id === client.user.id && m.content && m.content.includes('CUPSTATE:')
+    );
+
+    if (!botMsg) return false;
+
+    const match = botMsg.content.match(/CUPSTATE:([A-Za-z0-9+/=]+)/);
+    if (!match) return false;
+
+    const decoded = JSON.parse(Buffer.from(match[1], 'base64').toString('utf8'));
+    if (!decoded || !Array.isArray(decoded.challenges) || decoded.challenges.length !== 8) {
+      return false;
+    }
+
+    miniCupState = decoded;
+    miniCupMessageId = botMsg.id;
+    console.log(`Restored Mini Cup #${miniCupState.cupNumber} from Discord after restart.`);
+    return true;
+  } catch (e) {
+    console.error('Failed to restore Mini Cup from Discord:', e.message);
+    return false;
+  }
+}
+
+async function startMiniCup(previousCupNumber = 0) {
+  const channel = client.channels.cache.get(MINI_CUP_CHANNEL_ID);
+  if (!channel) return;
+
+  const usedIds = new Set(miniCupState ? miniCupState.challenges.map(c => c.id) : []);
+
+  const parkourPicks = pickRandomUnique(PARKOUR_IDS, usedIds, 2);
+  const clubPicks = pickRandomUnique(CLUB_IDS, usedIds, 2);
+  const boulderingPicks = pickRandomUnique(BOULDERING_IDS, usedIds, 2);
+  const zdriftPicks = pickRandomUnique(ZDRIFT_IDS, usedIds, 2);
+
+  const buildChallengeObj = (id, category) => {
+    const entries = cache[id] || [];
+    const fourth = entries.find(e => e.rank === 4);
+    const seventh = entries.find(e => e.rank === 7);
+    const target = roundUpToNearest005(fourth.record + (seventh.record - fourth.record) * 0.65);
+
+    const snapshot = {};
+    for (const e of entries) {
+      if (e.username && e.record <= target) {
+        snapshot[e.username] = e.record;
+      }
+    }
+
+    return { id, category, target, snapshot };
+  };
+
+  const challenges = [
+    ...parkourPicks.map(id => buildChallengeObj(id, 'Parkour')),
+    ...clubPicks.map(id => buildChallengeObj(id, 'Club')),
+    ...boulderingPicks.map(id => buildChallengeObj(id, 'Bouldering')),
+    ...zdriftPicks.map(id => buildChallengeObj(id, 'ZDrift')),
+  ];
+
+  if (challenges.length < 8) {
+    console.error('Not enough eligible challenges to start Mini Cup.');
+    return;
+  }
+
+  miniCupState = {
+    cupNumber: previousCupNumber + 1,
+    challenges,
+  };
+
+  const { mainEmbed, stateMessageContent } = buildMiniCupEmbed(miniCupState);
+
+  try {
+    if (miniCupMessageId) {
+      const existingMsg = await channel.messages.fetch(miniCupMessageId).catch(() => null);
+      if (existingMsg) {
+        await existingMsg.edit({ content: stateMessageContent, embeds: [mainEmbed] });
+        return;
+      }
+    }
+    const sent = await channel.send({ content: stateMessageContent, embeds: [mainEmbed] });
+    miniCupMessageId = sent.id;
+  } catch (e) {
+    console.error('Failed to post Mini Cup:', e.message);
+  }
+}
+
+async function updateMiniCup() {
+  const channel = client.channels.cache.get(MINI_CUP_CHANNEL_ID);
+  if (!channel) return;
+
+  if (!miniCupState) {
+    const restored = await restoreMiniCupFromDiscord();
+    if (!restored) {
+      await startMiniCup(0);
+      return;
+    }
+  }
+
+  const { mainEmbed, stateMessageContent, standings } = buildMiniCupEmbed(miniCupState);
+
+  const fullSweepWinner = standings.find(s => s.clears >= 8);
+
+  if (fullSweepWinner) {
+    const winnerChannel = client.channels.cache.get(MINI_CUP_WINNER_CHANNEL_ID);
+
+    if (winnerChannel) {
+      const winEmbed = new EmbedBuilder()
+        .setTitle(`Mini Cup #${miniCupState.cupNumber} Completed!`)
+        .setColor(0xffd700)
+        .setDescription(
+          `**Winner:** ${formatPlayer(fullSweepWinner.name)}\n` +
+          `**Score:** **8/8** targets beaten (-${fullSweepWinner.totalMargin.toFixed(3)}s total margin)\n\n` +
+          `A new 8-challenge Mini Cup starts now!`
+        )
+        .setTimestamp();
+
+      await winnerChannel.send({ embeds: [winEmbed] }).catch(console.error);
+    }
+
+    const oldCupNum = miniCupState.cupNumber;
+    await startMiniCup(oldCupNum);
+    return;
+  }
+
+  try {
+    if (miniCupMessageId) {
+      const msg = await channel.messages.fetch(miniCupMessageId);
+      await msg.edit({ content: stateMessageContent, embeds: [mainEmbed] });
+    } else {
+      const msg = await channel.send({ content: stateMessageContent, embeds: [mainEmbed] });
+      miniCupMessageId = msg.id;
+    }
+  } catch (e) {
+    console.error('Failed to update Mini Cup message:', e.message);
+    miniCupMessageId = null;
+  }
 }
 const DIVISIONS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII']; // I = lowest in tier, VIII = highest in tier
 
@@ -3903,5 +4131,24 @@ Rules:
     }
   }
 });
+client.on('messageCreate', async message => {
+  if (message.author.bot) return;
+  if (message.channel.id !== CHANGER_CHANNEL_ID) return;
 
+  if (message.content.trim().toLowerCase() === 'changecup') {
+    if (Object.keys(cache).length === 0) {
+      return message.reply('Cache is still loading, try again in a few seconds.');
+    }
+
+    // Make sure we know the current cup number even right after a Railway restart
+    if (!miniCupState) {
+      await restoreMiniCupFromDiscord();
+    }
+
+    const currentNum = miniCupState ? miniCupState.cupNumber : 0;
+    await startMiniCup(currentNum);
+
+    return message.reply(`Mini Cup #${currentNum} skipped — **Mini Cup #${currentNum + 1}** has started in <#${MINI_CUP_CHANNEL_ID}>!`);
+  }
+});
 client.login(BOT_TOKEN);
