@@ -656,28 +656,44 @@ async function checkAlerts(newCache) {
   const pbChannel = client.channels.cache.get(PB_CHANNEL_ID);
 
   for (const [challengeId, newEntries] of Object.entries(newCache)) {
-    if (!Array.isArray(newEntries) || newEntries.length === 0) continue;
     const oldEntries = previousCache[challengeId] || [];
-    if (oldEntries.length === 0) continue;
+
+    // Collect ALL current and previous #1 holders (handles tied WRs)
+    const oldWrEntries = oldEntries.filter(e => e.rank === 1);
+    const oldBestTime = oldWrEntries.length > 0
+      ? Math.min(...oldWrEntries.map(e => e.record))
+      : Infinity;
 
     for (const newEntry of newEntries) {
-      const oldEntry = oldEntries.find(e => e.user_id === newEntry.user_id || e.username === newEntry.username);
+      const oldEntry = oldEntries.find(
+        e => (e.user_id && e.user_id === newEntry.user_id) || e.username === newEntry.username
+      );
 
+      // --- WORLD RECORD CHECK (Tie-Safe) ---
       if (newEntry.rank === 1) {
-        const oldWrs = oldEntries.filter(e => e.rank === 1);
-        const wasAlreadyWr = oldWrs.some(
-          w => (w.user_id && w.user_id === newEntry.user_id || w.username === newEntry.username) &&
-               w.record.toFixed(3) === newEntry.record.toFixed(3)
+        const wasAlreadyWr = oldWrEntries.some(
+          e => (e.user_id && e.user_id === newEntry.user_id) || e.username === newEntry.username
         );
-        if (!wasAlreadyWr && wrChannel) {
+        const improvedTime = oldEntry && newEntry.record < oldEntry.record;
+        const beatOrTiedBest = newEntry.record <= oldBestTime;
+
+        // Only alert if:
+        // 1. They weren't already #1 AND their time actually ties/beats the old WR (ignores API rank-order flips)
+        // 2. OR they were already #1 and beat their own previous WR time
+        if (((!wasAlreadyWr && beatOrTiedBest) || improvedTime) && wrChannel) {
+          const isTie = !improvedTime && newEntry.record === oldBestTime && oldWrEntries.length > 0;
           const embed = new EmbedBuilder()
-            .setTitle('New World Record')
+            .setTitle(isTie ? 'Tied World Record' : 'New World Record')
             .setColor(0xffd700)
-            .setDescription(`${formatPlayer(newEntry.username)} set a new WR on **${getChallengeName(challengeId)}**\nTime: **${formatTime(newEntry.record)}**`)
+            .setDescription(
+              `${formatPlayer(newEntry.username)} ${isTie ? 'tied the WR' : 'set a new WR'} on **${getChallengeName(challengeId)}**\nTime: **${formatTime(newEntry.record)}**`
+            )
             .setTimestamp();
           wrChannel.send({ embeds: [embed] }).catch(console.error);
         }
       }
+
+      // --- TOP 7 CHECK ---
       if (newEntry.rank >= 2 && newEntry.rank <= 7) {
         const wasAlreadyTop7 = oldEntry && oldEntry.rank <= 7;
         if (!wasAlreadyTop7 && top7Channel) {
@@ -697,6 +713,7 @@ async function checkAlerts(newCache) {
         }
       }
 
+      // --- PERSONAL BEST & NEW TOP 100 CHECK ---
       if (oldEntry && newEntry.record < oldEntry.record && pbChannel) {
         const embed = new EmbedBuilder()
           .setTitle('Personal Best')
@@ -894,21 +911,34 @@ async function endSpotlight() {
 
 await startSpotlight();
 }
-const DIVISIONS = ['I', 'II', 'III', 'IV', 'V']; // I = lowest in tier, V = highest in tier
+const DIVISIONS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII']; // I = lowest in tier, VIII = highest in tier
 
 const FIXED_TOP_TIERS = [
-  { name: 'Apex',        color: 0xffd700, minRank: 1,   maxRank: 5 },
-  { name: 'Grandmaster', color: 0xe74c3c, minRank: 6,   maxRank: 15 },
-  { name: 'Master',      color: 0x9b59b6, minRank: 16,  maxRank: 35 },
-  { name: 'Diamond',     color: 0x00d2ff, minRank: 36,  maxRank: 85 },
-  { name: 'Platinum',    color: 0x1abc9c, minRank: 86,  maxRank: 170 },
-  { name: 'Gold',        color: 0xf1c40f, minRank: 171, maxRank: 300 },
+  { name: 'Immortal',    color: 0xffffff, minRank: 1,   maxRank: 1 },   // #1 Only
+  { name: 'Sovereign',   color: 0xff0055, minRank: 2,   maxRank: 3 },   // #2–#3
+  { name: 'Mythic',      color: 0xff4500, minRank: 4,   maxRank: 6 },   // #4–#6
+  { name: 'Apex',        color: 0xffd700, minRank: 7,   maxRank: 11 },  // 5 slots
+  { name: 'Legend',      color: 0xff2a85, minRank: 12,  maxRank: 18 },  // 7 slots
+  { name: 'Grandmaster', color: 0xe74c3c, minRank: 19,  maxRank: 28 },  // 10 slots
+  { name: 'Master',      color: 0x9b59b6, minRank: 29,  maxRank: 40 },  // 12 slots
+  { name: 'Champion',    color: 0xe84393, minRank: 41,  maxRank: 56 },  // 16 slots
+  { name: 'Contender',   color: 0xd63031, minRank: 57,  maxRank: 76 },  // 20 slots
+  { name: 'Pro',         color: 0x00cec9, minRank: 77,  maxRank: 100 }, // 24 slots
+  { name: 'Diamond',     color: 0x00d2ff, minRank: 101, maxRank: 130 }, // 30 slots
+  { name: 'Emerald',     color: 0x2ecc71, minRank: 131, maxRank: 160 }, // 30 slots
+  { name: 'Ruby',        color: 0xc0392b, minRank: 161, maxRank: 190 }, // 30 slots
+  { name: 'Platinum',    color: 0x1abc9c, minRank: 191, maxRank: 225 }, // 35 slots
+  { name: 'Titanium',    color: 0x70a1ff, minRank: 226, maxRank: 260 }, // 35 slots
+  { name: 'Cobalt',      color: 0x3742fa, minRank: 261, maxRank: 295 }, // 35 slots
+  { name: 'Gold',        color: 0xf1c40f, minRank: 296, maxRank: 330 }, // 35 slots
+  { name: 'Silver',      color: 0xbdc3c7, minRank: 331, maxRank: 365 }, // 35 slots
+  { name: 'Scrap',       color: 0x636e72, minRank: 366, maxRank: 400 }, // 35 slots
 ];
 
+const TOP_FIXED_CUTOFF = 400;
+
 const LOWER_PERCENTILE_TIERS = [
-  { name: 'Silver', color: 0xbdc3c7, minPct: 0.00, maxPct: 0.13 },
-  { name: 'Bronze', color: 0xcd7f32, minPct: 0.13, maxPct: 0.42 },
-  { name: 'Scrap',  color: 0x7f8c8d, minPct: 0.42, maxPct: 1.01 },
+  { name: 'Rust', color: 0x6e2c00, minPct: 0.00, maxPct: 1.01, label: 'All players #401+' },
 ];
 
 let playerRankMap = new Map();
@@ -926,7 +956,7 @@ function formatPlayer(name) {
 
 function getDivisionFromProgress(progress) {
   const clamped = Math.min(0.9999, Math.max(0, progress));
-  const index = Math.floor(clamped * 5);
+  const index = Math.floor(clamped * DIVISIONS.length);
   return DIVISIONS[index];
 }
 
@@ -940,6 +970,16 @@ function assignDynamicRank(mmr, rankIndex, totalPlayers) {
   const topTier = FIXED_TOP_TIERS.find(t => rank >= t.minRank && rank <= t.maxRank);
   if (topTier) {
     const tierSize = topTier.maxRank - topTier.minRank + 1;
+
+    if (tierSize === 1) {
+      return {
+        tierName: topTier.name,
+        division: '∞',
+        fullRank: `${topTier.name} ∞`,
+        color: topTier.color,
+      };
+    }
+
     const posFromBottom = topTier.maxRank - rank;
     const progress = (posFromBottom + 0.5) / tierSize;
     const div = getDivisionFromProgress(progress);
@@ -952,8 +992,8 @@ function assignDynamicRank(mmr, rankIndex, totalPlayers) {
     };
   }
 
-  const remainingPlayers = Math.max(1, totalPlayers - 300);
-  const pct = (rank - 301) / remainingPlayers;
+  const remainingPlayers = Math.max(1, totalPlayers - TOP_FIXED_CUTOFF);
+  const pct = (rank - (TOP_FIXED_CUTOFF + 1)) / remainingPlayers;
   const lowerTier = LOWER_PERCENTILE_TIERS.find(t => pct >= t.minPct && pct < t.maxPct)
     || LOWER_PERCENTILE_TIERS[LOWER_PERCENTILE_TIERS.length - 1];
 
@@ -1061,71 +1101,82 @@ function calculateAllMMR() {
   return sorted;
 }
 
-function buildRankThresholdsEmbed(sorted) {
+function buildRankThresholdsEmbeds(sorted) {
   const totalPlayers = sorted.length;
-  const remainingPlayers = Math.max(1, totalPlayers - 300);
+  const remainingPlayers = Math.max(1, totalPlayers - TOP_FIXED_CUTOFF);
 
-  const getMmrAt = (idx) => {
-    if (sorted.length === 0) return '0';
+  const getMmrVal = (idx) => {
+    if (sorted.length === 0) return 0;
     const safeIdx = Math.min(Math.max(0, idx), sorted.length - 1);
-    return `${sorted[safeIdx].mmr.toLocaleString()} MMR`;
+    return sorted[safeIdx].mmr;
   };
 
-  // Top 300 fixed slot ranges
+  let upperTierMinMmr = null;
+
   const fixedRows = FIXED_TOP_TIERS.map(t => {
-    const minMmr = getMmrAt(t.maxRank - 1);
-    const maxMmr = getMmrAt(t.minRank - 1);
+    const minMmr = getMmrVal(t.maxRank - 1);
+    const maxMmr = upperTierMinMmr !== null
+      ? Math.max(minMmr, upperTierMinMmr - 1)
+      : getMmrVal(t.minRank - 1);
+
+    upperTierMinMmr = minMmr;
+
     const rangeStr = t.minRank === 1
-      ? `${minMmr}+`
-      : `${minMmr} – ${maxMmr}`;
-    return `**${t.name}** (#${t.minRank}–#${t.maxRank}): **${rangeStr}**`;
+      ? `${minMmr.toLocaleString()} MMR+`
+      : `${minMmr.toLocaleString()} – ${maxMmr.toLocaleString()} MMR`;
+
+    const slotLabel = t.minRank === t.maxRank ? `#${t.minRank}` : `#${t.minRank}–#${t.maxRank}`;
+    return `**${t.name}** (${slotLabel}): **${rangeStr}**`;
   });
 
-  // #301+ percentile ranges
-  const lowerRows = LOWER_PERCENTILE_TIERS.map(t => {
-    const startRank = 301 + Math.floor(t.minPct * remainingPlayers);
-    const endRank = Math.min(totalPlayers, 300 + Math.ceil(t.maxPct * remainingPlayers));
+  const lowerRows = LOWER_PERCENTILE_TIERS.map((t, index) => {
+    const startRank = TOP_FIXED_CUTOFF + 1 + Math.floor(t.minPct * remainingPlayers);
+    const endRank = Math.min(totalPlayers, TOP_FIXED_CUTOFF + Math.ceil(t.maxPct * remainingPlayers));
     if (startRank > totalPlayers) {
-      return `**${t.name}** (Top ${Math.round(t.maxPct * 100)}% below #300): *Not yet filled*`;
+      return `**${t.name}** (${t.label}): *Not yet filled*`;
     }
-    const minMmr = getMmrAt(endRank - 1);
-    const maxMmr = getMmrAt(startRank - 1);
-    const pctLabel = t.name === 'Silver'
-      ? 'Top 13% below #300'
-      : t.name === 'Bronze'
-        ? '13%–42% below #300'
-        : 'Bottom 58% below #300';
-    return `**${t.name}** (#${startRank}–#${endRank} • ${pctLabel}): **${minMmr} – ${maxMmr}**`;
+
+    const isLastTier = index === LOWER_PERCENTILE_TIERS.length - 1;
+    const minMmr = isLastTier ? 1 : getMmrVal(endRank - 1);
+    const maxMmr = upperTierMinMmr !== null
+      ? Math.max(minMmr, upperTierMinMmr - 1)
+      : getMmrVal(startRank - 1);
+
+    upperTierMinMmr = minMmr;
+
+    return `**${t.name}** (#${startRank}–#${endRank}): **${minMmr.toLocaleString()} – ${maxMmr.toLocaleString()} MMR**`;
   });
 
-  // Division breakdown inside Top 300 (V = highest in tier, I = lowest in tier)
-  const divLines = FIXED_TOP_TIERS.map(t => {
+  const mainEmbed = new EmbedBuilder()
+    .setTitle('Orion Drift — Current Rank MMR Thresholds')
+    .setColor(0xf5a623)
+    .setDescription([
+      'Ranks update every 10 minutes based on live MMR standings (20 Tiers, Divisions I–VIII).',
+      '',
+      ...fixedRows,
+      ...lowerRows,
+      '**Unranked:** 0 MMR (no Top 100 times)',
+    ].join('\n').slice(0, 4096))
+    .setFooter({ text: `Total Ranked Players: ${totalPlayers.toLocaleString()} • Updates every 10 mins` });
+
+  const divDescOrder = [...DIVISIONS].reverse(); // VIII down to I
+  const divLines = FIXED_TOP_TIERS.filter(t => t.maxRank - t.minRank + 1 >= 8).map(t => {
     const tierSize = t.maxRank - t.minRank + 1;
-    const perDiv = tierSize / 5;
-    const divs = ['V', 'IV', 'III', 'II', 'I'].map((div, i) => {
-      const rStart = Math.round(t.minRank + i * perDiv);
+    const perDiv = tierSize / DIVISIONS.length;
+    const divs = divDescOrder.map((div, i) => {
       const rEnd = Math.round(t.minRank + (i + 1) * perDiv - 1);
-      const cutoff = getMmrAt(rEnd - 1);
+      const cutoff = getMmrVal(rEnd - 1).toLocaleString();
       return `${div}: ${cutoff}`;
     });
     return `**${t.name}:** ${divs.join(' | ')}`;
   });
 
-  return new EmbedBuilder()
-    .setTitle('Orion Drift — Current Rank MMR Thresholds')
+  const divisionsEmbed = new EmbedBuilder()
+    .setTitle('Top 400 Division Cutoffs (Minimum MMR for VIII → I)')
     .setColor(0xf5a623)
-    .setDescription([
-      'Ranks are dynamic and update every 10 minutes based on live MMR standings.',
-      '',
-      '__**Tier Cutoffs**__',
-      ...fixedRows,
-      ...lowerRows,
-      '**Unranked:** 0 MMR (no Top 100 times)',
-      '',
-      '__**Top 300 Division Cutoffs (Minimum MMR for Division)**__',
-      ...divLines,
-    ].join('\n'))
-    .setFooter({ text: `Total Ranked Players: ${totalPlayers.toLocaleString()} • Updates every 10 mins` });
+    .setDescription(divLines.join('\n').slice(0, 4096));
+
+return [mainEmbed, divisionsEmbed];
 }
 
 async function updateMmrChannel() {
@@ -1146,7 +1197,7 @@ async function updateMmrChannel() {
     .setDescription(lines.join('\n'))
     .setFooter({ text: `Top 30 Players • Auto-updates every 10 mins • Last updated: ${new Date().toLocaleTimeString()}` });
 
-  const thresholdsEmbed = buildRankThresholdsEmbed(sorted);
+  const thresholdEmbeds = buildRankThresholdsEmbeds(sorted);
 
   try {
     if (!mmrMessageId || !mmrThresholdsMessageId) {
@@ -1171,9 +1222,9 @@ async function updateMmrChannel() {
 
     if (mmrThresholdsMessageId) {
       const msg = await channel.messages.fetch(mmrThresholdsMessageId);
-      await msg.edit({ embeds: [thresholdsEmbed] });
+      await msg.edit({ embeds: thresholdEmbeds });
     } else {
-      const msg = await channel.send({ embeds: [thresholdsEmbed] });
+      const msg = await channel.send({ embeds: thresholdEmbeds });
       mmrThresholdsMessageId = msg.id;
     }
   } catch (e) {
@@ -1354,7 +1405,7 @@ async function buildCache() {
     ...INTRO_WAYS_TO_CLIMB_IDS,
   ])];
 
-  const BATCH_SIZE = 8; // Fetches 8 challenges at once
+  const BATCH_SIZE = 15; // Fetches 8 challenges at once
   for (let i = 0; i < ALL_IDS.length; i += BATCH_SIZE) {
     const batch = ALL_IDS.slice(i, i + BATCH_SIZE);
 
@@ -1375,7 +1426,7 @@ async function buildCache() {
       logToChannel(`Fetching cache... ${fetchedCount}/${ALL_IDS.length}`);
     }
 
-    await new Promise(r => setTimeout(r, 150));
+    await new Promise(r => setTimeout(r, 100));
   }
 
   try {
@@ -1453,7 +1504,7 @@ client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}`);
   logToChannel(`Bot started — logged in as ${client.user.tag}`);
   await buildCache();
-  setInterval(buildCache, 10 * 60 * 1000);
+  setInterval(buildCache, 2 * 60 * 1000);
   // Start spotlight after first cache build is fully done
   await startSpotlight();
   await startGauntlet();
@@ -1466,7 +1517,14 @@ client.on('interactionCreate', async interaction => {
     const { commandName } = interaction;
     const focused = interaction.options.getFocused().toLowerCase();
 
-    if (commandName === 'stats' || commandName === 'improve' || commandName === '1v1' || commandName === 'summary' || commandName === 'zdriftimprove' || commandName === 'zstats' || commandName === 'zsummary' || commandName === 'boulderingimprove' || commandName === 'dribbleimprove' || commandName === 'driftballimprove' || commandName === 'clubimprove' || commandName === 'parkourimprove' || commandName === 'introimprove' || commandName === 'waystoclimbimprove' || commandName === 'introwaystoclimbimprove') {
+    if (
+      commandName === 'stats' || commandName === 'improve' || commandName === '1v1' ||
+      commandName === 'summary' || commandName === 'zdriftimprove' || commandName === 'zstats' ||
+      commandName === 'zsummary' || commandName === 'boulderingimprove' || commandName === 'dribbleimprove' ||
+      commandName === 'driftballimprove' || commandName === 'clubimprove' || commandName === 'parkourimprove' ||
+      commandName === 'introimprove' || commandName === 'waystoclimbimprove' || commandName === 'introwaystoclimbimprove' ||
+      commandName === 'time'
+    ) {
       const matches = Object.values(playerStats)
         .filter(p => p.name.toLowerCase().includes(focused))
         .sort((a, b) => b.totalPoints - a.totalPoints)
@@ -1475,7 +1533,7 @@ client.on('interactionCreate', async interaction => {
       return interaction.respond(matches);
     }
 
-    if (commandName === 'challenge') {
+    if (commandName === 'challenge' || (commandName === 'time' && interaction.options.getFocused(true).name === 'challenge')) {
       const ALL_CHALLENGE_IDS = [...new Set([...CHALLENGE_IDS, ...ZDRIFT_IDS])];
       const matches = ALL_CHALLENGE_IDS
         .filter(id => getChallengeName(id).toLowerCase().includes(focused) || id.toLowerCase().includes(focused))
@@ -1594,7 +1652,54 @@ client.on('interactionCreate', async interaction => {
       await interaction.followUp({ embeds: [followEmbed] });
     }
   }
+else if (commandName === 'time') {
+    await interaction.deferReply();
+    const playerInput = interaction.options.getString('name').trim().toLowerCase();
+    const challengeInput = interaction.options.getString('challenge').trim();
 
+    // Find challenge by exact ID or name match
+    const ALL_CHALLENGE_IDS = [...new Set([...Object.keys(CHALLENGE_NAMES), ...Object.keys(cache)])];
+    const challengeId = ALL_CHALLENGE_IDS.find(id => id.toLowerCase() === challengeInput.toLowerCase())
+      || ALL_CHALLENGE_IDS.find(id => getChallengeName(id).toLowerCase() === challengeInput.toLowerCase())
+      || ALL_CHALLENGE_IDS.find(id => getChallengeName(id).toLowerCase().includes(challengeInput.toLowerCase()));
+
+    if (!challengeId || !cache[challengeId]) {
+      return interaction.editReply(`No challenge found matching **${challengeInput}**.`);
+    }
+
+    const entries = cache[challengeId];
+    const entry = entries.find(e => e.username && e.username.toLowerCase() === playerInput)
+      || entries.find(e => e.username && e.username.toLowerCase().includes(playerInput));
+
+    if (!entry) {
+      return interaction.editReply(`**${interaction.options.getString('name')}** does not have a Top 100 time on **${getChallengeName(challengeId)}**.`);
+    }
+
+    const rankInfo = getPlayerRankInfo(entry.username);
+    const wr = entries.find(e => e.rank === 1);
+    const points = getPoints(entry.rank);
+    const diffFromWr = wr ? entry.record - wr.record : 0;
+    const raw15 = Number(entry.record).toFixed(15);
+
+    const diffLine = entry.rank === 1
+      ? `**Gap to WR:** Current World Record! 🏆`
+      : `**Gap to WR:** +${diffFromWr.toFixed(3)}s (${formatTime(wr.record)} by ${wr.username})`;
+
+    const embed = new EmbedBuilder()
+      .setTitle(`${entry.username} — ${getChallengeName(challengeId)}`)
+      .setColor(rankInfo.color)
+      .setDescription([
+        `**Player:** ${formatPlayer(entry.username)}`,
+        `**Place:** #${entry.rank} / ${entries.length}`,
+        `**Time:** **${formatTime(entry.record)}**`,
+        `-# (${raw15}s)`,
+        `**Points:** ${points.toLocaleString()} pts`,
+        diffLine,
+      ].join('\n'))
+      .setFooter({ text: `Updated: ${lastUpdated?.toLocaleTimeString() || 'N/A'}` });
+
+    return interaction.editReply({ embeds: [embed] });
+  }
   else if (commandName === 'mmrleaderboard') {
     await interaction.deferReply();
     const page = interaction.options.getInteger('page') || 1;
