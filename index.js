@@ -1146,14 +1146,29 @@ async function startMiniCup(previousCupNumber = 0) {
     const entries = cache[id] || [];
     const fourth = entries.find(e => e.rank === 4);
     const seventh = entries.find(e => e.rank === 7);
+    
+    if (!fourth || !seventh) {
+      return { id, category, target: 0, snapshot: {} };
+    }
+
     const target = roundUpToNearest005(fourth.record + (seventh.record - fourth.record) * 0.65);
 
     const snapshot = {};
-    for (const e of entries) {
-      if (e.username && e.record <= target && e.timestamp >= cupStartTime) {
-        snapshot[e.username] = e.record;
+    for (const entry of entries) {
+      // Check multiple common property names for timestamps to prevent undefined values
+      const entryTime = entry.timestamp || entry.createdAt || entry.date || 0;
+
+      const beatTarget = entry.record <= target;
+      // Ensure the time was set strictly AFTER the Mega Cup started
+      const isAfterStart = entryTime >= cupStartTime;
+
+      if (entry.username && beatTarget && isAfterStart) {
+        snapshot[entry.username] = entry.record;
       }
     }
+
+    return { id, category, target, snapshot };
+  };
 
     return { id, category, target, snapshot };
   };
