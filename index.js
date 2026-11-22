@@ -1202,7 +1202,7 @@ function buildMiniCupEmbed(state) {
   for (const [categoryName, challenges] of Object.entries(categoriesMap)) {
     challengeSections.push(`**${categoryName}**`);
     for (const c of challenges) {
-      const clearsCount = Object.keys(c.snapshot || {}).length;
+      const clearsCount = Object.keys(c.clears || {}).length;
       
       // Look up human-readable name from CHALLENGE_NAMES
       const challengeInfo = CHALLENGE_NAMES[c.id];
@@ -1219,10 +1219,10 @@ function buildMiniCupEmbed(state) {
   const requiredClears = 40;
 
   for (const c of state.challenges) {
-    for (const username of Object.keys(c.snapshot || {})) {
-      playerClears[username] = (playerClears[username] || 0) + 1;
-    }
+  for (const username of Object.keys(c.clears || {})) {
+    playerClears[username] = (playerClears[username] || 0) + 1;
   }
+}
 
   const winners = Object.entries(playerClears)
     .filter(([_, count]) => count >= requiredClears)
@@ -1819,6 +1819,7 @@ async function buildCache() {
 
   if (spotlightChallenge) await updateSpotlightMessage();
   await checkGauntlet();
+  await checkMiniCup();
   await updateMmrChannel();
   await updateChallengeForum();
 
