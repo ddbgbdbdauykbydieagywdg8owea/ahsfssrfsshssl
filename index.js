@@ -1256,6 +1256,60 @@ function buildMiniCupEmbed(state) {
 
   return { mainEmbed, standings: playerClears };
 }
+async function checkMiniCup() {
+  if (!miniCupState) return;
+
+  let updated = false;
+
+  for (const c of miniCupState.challenges) {
+    if (!c.initialSnapshot) c.initialSnapshot = {};
+    if (!c.clears) c.clears = {};
+
+    const entries = cache[c.id] || [];
+    for (const entry of entries) {
+      if (!entry.username) continue;
+
+      const prevRecord = c.initialSnapshot[entry.username];
+      const beatTarget = entry.record <= c.target;
+      const isNewOrImprovedPB = prevRecord === undefined || entry.record < prevRecord;
+
+      if (beatTarget && isNewOrImprovedPB) {
+        if (!c.clears[entry.username] || entry.record < c.clears[entry.username]) {
+          c.clears[entry.username] = entry.record;
+          updated = true;
+        }
+      }
+    }
+  }
+
+  const { mainEmbed, standings } = buildMiniCupEmbed(miniCupState);
+  const requiredClears = 40;
+
+  const winners = Object.entries(standings)
+    .filter(([_, count]) => count >= requiredClears)
+    .map(([username]) => username);
+
+  const channel = client.channels.cache.get(MINI_CUP_CHANNEL_ID);
+  if (channel && miniCupMessageId) {
+    try {
+      const msg = await channel.messages.fetch(miniCupMessageId);
+      await msg.edit({ embeds: [mainEmbed] });
+    } catch (e) {
+      console.error('Failed to edit Mega Cup embed:', e.message);
+    }
+  }
+
+  if (updated) {
+    await saveCupStateToStaffChannel(miniCupState);
+  }
+
+  if (winners.length > 0) {
+    if (channel) {
+      await channel.send(`**Mega Cup #${miniCupState.cupNumber} Won!** Congratulations to **${winners.join(', ')}** for clearing ${requiredClears}/50 challenges! Starting the next Mega Cup...`);
+    }
+    await startMiniCup(miniCupState.cupNumber);
+  }
+}
 const DIVISIONS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII']; // I = lowest in tier, VIII = highest in tier
 
 const FIXED_TOP_TIERS = [
